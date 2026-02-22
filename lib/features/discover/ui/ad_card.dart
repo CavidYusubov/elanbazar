@@ -37,6 +37,7 @@ class AdCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
+        clipBehavior: Clip.antiAlias, // ✅ kənardan daşmanı da kəsir
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -52,16 +53,11 @@ class AdCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // image
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
-              ),
+            // ✅ şəkil - Expanded ilə yuxarı hissə
+            Expanded(
               child: Stack(
                 children: [
-                  AspectRatio(
-                    aspectRatio: 1.25,
+                  Positioned.fill(
                     child: Image.network(
                       coverUrl,
                       fit: BoxFit.cover,
@@ -105,13 +101,18 @@ class AdCard extends StatelessWidget {
               ),
             ),
 
+            // ✅ qiymət
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
               child: Text(
                 '$price $currency',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ),
+
+            // ✅ title (maxLines 2 etsən daha stabil olar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(
@@ -122,8 +123,7 @@ class AdCard extends StatelessWidget {
               ),
             ),
 
-            const Spacer(),
-
+            // ✅ ALT hissə (Spacer YOX!)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
@@ -147,7 +147,8 @@ class AdCard extends StatelessWidget {
                     },
                     child: CircleAvatar(
                       radius: 12,
-                      backgroundImage: (publisher?.avatarUrl != null && publisher!.avatarUrl!.isNotEmpty)
+                      backgroundImage: (publisher?.avatarUrl != null &&
+                              publisher!.avatarUrl!.isNotEmpty)
                           ? NetworkImage(publisher!.avatarUrl!)
                           : null,
                       child: (publisher?.avatarUrl == null || publisher!.avatarUrl!.isEmpty)
@@ -159,6 +160,7 @@ class AdCard extends StatelessWidget {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           user,
@@ -197,7 +199,6 @@ class AdCard extends StatelessWidget {
   }
 
   String _shortDate(String iso) {
-    // "2026-02-03 10:26:48" -> "03.02"
     if (iso.length >= 10) {
       final m = iso.substring(5, 7);
       final d = iso.substring(8, 10);

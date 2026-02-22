@@ -114,37 +114,37 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
 
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.74,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        final ad = st.items[i];
-                        return AdCard(
-                          title: ad.title,
-                          price: ad.priceStr.isNotEmpty ? ad.priceStr : ad.price.toStringAsFixed(0),
-                          currency: ad.currency,
-                          coverUrl: ad.coverUrl,
-                          user: ad.publisher?.name ?? ad.userName,
-                          city: ad.cityName,
-                          date: ad.dateStr,
-                          publisher: ad.publisher,
-                          isVip: ad.isVipActive,
-                          isPremium: ad.isPremiumActive,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => AdDetailScreen(adId: ad.id)),
-                            );
-                          },
-                        );
-                      },
-                      childCount: st.items.length,
-                    ),
-                  ),
+                sliver: SliverGrid(
+  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 12,
+    mainAxisExtent: 270, // ✅ kartın hündürlüyü (tənzimlə: 260-290)
+  ),
+  delegate: SliverChildBuilderDelegate(
+    (context, i) {
+      final ad = st.items[i];
+      return AdCard(
+        title: ad.title,
+        price: ad.priceStr.isNotEmpty ? ad.priceStr : ad.price.toStringAsFixed(0),
+        currency: ad.currency,
+        coverUrl: ad.coverUrl,
+        user: ad.publisher?.name ?? ad.userName,
+        city: ad.cityName,
+        date: ad.dateStr,
+        publisher: ad.publisher,
+        isVip: ad.isVipActive,
+        isPremium: ad.isPremiumActive,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => AdDetailScreen(adId: ad.id)),
+          );
+        },
+      );
+    },
+    childCount: st.items.length,
+  ),
+),
                 ),
 
                 SliverToBoxAdapter(
