@@ -48,26 +48,33 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.menu),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'elanbazar',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.green,
-                  ),
-                ),
-                const Spacer(),
-                _iconSquare(Icons.search, onTap: () {}),
-                const SizedBox(width: 10),
-                _iconSquare(Icons.tune, onTap: () => _showFilters(context)),
-              ],
-            ),
+  children: [
+    IconButton(
+      onPressed: () => Navigator.of(context).maybePop(), // ✅ geri qayit
+      icon: const Icon(Icons.arrow_back_ios_new),
+      tooltip: 'Geri',
+    ),
+    const SizedBox(width: 6),
+
+    // ✅ yığcam logo
+    const Text(
+      'elanbazar',
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 20, // 22 -> 20 (yığcam)
+        fontWeight: FontWeight.w900,
+        color: Colors.green,
+        height: 1.0,
+      ),
+    ),
+
+    const Spacer(),
+
+    _iconSquare(Icons.search, onTap: () {}),
+    const SizedBox(width: 10),
+    _iconSquare(Icons.tune, onTap: () => _showFilters(context)),
+  ],
+),
           ),
         ),
       ),

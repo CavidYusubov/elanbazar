@@ -7,6 +7,10 @@ import 'package:elanbazar/features/discover/ui/discover_screen.dart';
 import 'package:elanbazar/features/profile/user_profile_screen.dart';
 import 'package:elanbazar/features/profile/store_profile_screen.dart';
 
+// Əgər NextCards səndə ayrıca fayldadırsa, import elə.
+// import 'next_cards.dart';
+// import '../widgets/reel_actions.dart';
+
 class ReelsScreen extends ConsumerStatefulWidget {
   const ReelsScreen({super.key});
 
@@ -44,6 +48,30 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     );
   }
 
+  void _openSideMenu(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'menu',
+      barrierColor: Colors.black.withOpacity(0.35),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, __, ___) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
+        return Align(
+          alignment: Alignment.centerRight,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(curved),
+            child: const _SideMenuPanel(),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(reelsControllerProvider);
@@ -71,11 +99,15 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
           final ad = st.items[i];
           final next3 = st.items.skip(i + 1).take(3).toList();
 
-          const rightRailWidth = 86.0; // avatar+btn sahəsi üçün "toxunma qadağan" zolağı
+          // UI ölçüləri
+          const rightRailWidth = 86.0;
+          const headerH = 56.0; // ən yuxarı row hündürlüyü
+
+          final isStore = (ad.publisher?.type == 'store');
 
           return Column(
             children: [
-              // ✅ TOP: image yalnız bu hissəni doldurur
+              // ✅ TOP (image area)
               Expanded(
                 child: Stack(
                   fit: StackFit.expand,
@@ -87,158 +119,169 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                       errorBuilder: (_, __, ___) => Container(
                         color: Colors.black,
                         child: const Center(
-                          child: Icon(
-                            Icons.image_not_supported,
-                            color: Colors.white24,
-                            size: 48,
+                          child: Icon(Icons.image_not_supported, color: Colors.white24, size: 48),
+                        ),
+                      ),
+                    ),
+
+                    // yüngül qara gradient (üst UI oxunsun)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.center,
+                              colors: [
+                                Colors.black.withOpacity(0.35),
+                                Colors.transparent,
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
 
-                    // ✅ Detail-ə keçid: YALNIZ boş sahə (right rail və top header xaric)
-                    // Burada header (yuxarı) və right rail (sağ) klik udulmur.
-                    Positioned.fill(
-                      child: SafeArea(
-                        child: LayoutBuilder(
-                          builder: (context, c) {
-                            // header hündürlüyü (chip row + padding)
-                            const headerBlockH = 84.0;
+                    // ✅ Detail tap layer (yalnız boş sahə)
+                    // Header + right rail çıxılır
+                Positioned.fill(
+  child: SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.only(top: 56), // header hündürlüyü
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openDetail(context, ad.id),
+              ),
+            ),
+          ),
+          const SizedBox(width: rightRailWidth),
+        ],
+      ),
+    ),
+  ),
+),
 
-                            return Column(
-                              children: [
-                                // header sahəsi klik udulmasın
-                                SizedBox(
-                                  height: headerBlockH,
-                                  child: const IgnorePointer(
-                                    ignoring: true,
-                                    child: SizedBox.expand(),
-                                  ),
-                                ),
-
-                                // qalan sahə: sağ zolaq çıxılır -> yalnız sol hissə detail klikdir
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      // ✅ sol sahə: detail
-                                      Expanded(
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => _openDetail(context, ad.id),
-                                          ),
-                                        ),
-                                      ),
-                                      // sağ rail: detail klik burda olmasın
-                                      const SizedBox(width: rightRailWidth),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+                  
+Positioned(
+  left: 0,
+  right: 0,
+  top: 0,
+  child: SafeArea(
+    bottom: false,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (isStore)
+              GestureDetector(
+                onTap: () {
+                  final pub = ad.publisher;
+                  if (pub != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => StoreProfileScreen(
+                          slug: pub.slug ?? pub.id.toString(),
                         ),
                       ),
-                    ),
-
-                    // Top toggle
-                    SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 20, left: 14, right: 14),
-                        child: Row(
-                          children: [
-                            _chip('Reels', active: true),
-                            const SizedBox(width: 8),
-                            _chip(
-                              'Kəşf et',
-                              active: false,
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const DiscoverScreen()),
-                                );
-                              },
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              onPressed: () {},
-                              icon: const Icon(Icons.search, color: Colors.white),
-                            ),
-                          ],
-                        ),
+                    );
+                  }
+                },
+                child: Row(
+                  children: [
+                    const Icon(Icons.storefront, color: Colors.white, size: 16),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Mağaza',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
                       ),
                     ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox(width: 64),
 
-                    // Right actions (avatar/like/comment)
+            const Spacer(),
+
+            _topTab('Sənin üçün', active: true, onTap: () {}),
+            const SizedBox(width: 14),
+            _topTab(
+              'Kəşf et',
+              active: false,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+                );
+              },
+            ),
+
+            const Spacer(),
+
+            InkWell(
+              onTap: () => _openSideMenu(context),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.16)),
+                ),
+                child: const Icon(Icons.menu, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
+
+                    // ✅ Right actions (avatar / like / comment / more) — bunlar detail layer-dən kənardadır
                     Positioned(
                       right: 12,
-                      top: 130,
+                      top: 90,
                       child: SizedBox(
                         width: rightRailWidth,
-                        child: Column(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                final pub = ad.publisher;
-                                if (pub != null) {
-                                  if (pub.type == 'user') {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => UserProfileScreen(userId: pub.id),
-                                      ),
-                                    );
-                                  } else if (pub.type == 'store') {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => StoreProfileScreen(
-                                          slug: pub.slug ?? pub.id.toString(),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              child: CircleAvatar(
-                                radius: 22,
-                                backgroundColor: Colors.white24,
-                                backgroundImage: (ad.publisher?.avatarUrl != null &&
-                                        ad.publisher!.avatarUrl!.isNotEmpty)
-                                    ? NetworkImage(ad.publisher!.avatarUrl!)
-                                    : null,
-                                child: (ad.publisher?.avatarUrl == null ||
-                                        ad.publisher!.avatarUrl!.isEmpty)
-                                    ? const Icon(Icons.person, color: Colors.white)
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-
-                            // Like (indi detail-ə getməyəcək)
-                            _actionBtn(
-                              Icons.favorite_border,
-                              '${ad.likeCount}',
-                              onTap: () {
-                                // TODO: like action
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            _actionBtn(
-                              Icons.chat_bubble_outline,
-                              '${ad.commentCount}',
-                              onTap: () {
-                                // TODO: open comments
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            _actionBtn(
-                              Icons.more_horiz,
-                              '',
-                              onTap: () {
-                                // TODO: open menu
-                              },
-                            ),
-                          ],
+                        child: ReelActions(
+                          avatarUrl: ad.publisher?.avatarUrl,
+                          likeCount: ad.likeCount,
+                          commentCount: ad.commentCount,
+                          onAvatarTap: () {
+                            final pub = ad.publisher;
+                            if (pub != null) {
+                              if (pub.type == 'user') {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => UserProfileScreen(userId: pub.id)),
+                                );
+                              } else if (pub.type == 'store') {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => StoreProfileScreen(slug: pub.slug ?? pub.id.toString()),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          onLike: () {
+                            // TODO: like
+                          },
+                          onComment: () {
+                            // TODO: comments
+                          },
+                          onMore: () {
+                            // TODO: more menu
+                          },
                         ),
                       ),
                     ),
@@ -246,15 +289,13 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                 ),
               ),
 
-              // ✅ BOTTOM: başlıqdan aşağı hissə (şəkil bura girmir)
+              // ✅ BOTTOM info + next cards
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  border: Border(
-                    top: BorderSide(color: Colors.white.withOpacity(0.10)),
-                  ),
+                  color: Colors.black.withOpacity(0.70),
+                  border: Border(top: BorderSide(color: Colors.white.withOpacity(0.10))),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,14 +334,14 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Next 3 click -> jump
-                    for (int k = 0; k < next3.length; k++)
-                      _nextCard(
-                        img: next3[k].coverUrl,
-                        title: next3[k].title,
-                        subtitle: '${next3[k].city} • ${next3[k].category}',
-                        onTap: () => _jumpTo(i + 1 + k),
-                      ),
+                    NextCards(
+                      items: next3,
+                      onTap: (adId) {
+                        // next card -> həmin reel-ə jump
+                        final idx = st.items.indexWhere((x) => x.id == adId);
+                        if (idx != -1) _jumpTo(idx);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -311,35 +352,235 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     );
   }
 
-  static Widget _chip(String text, {required bool active, VoidCallback? onTap}) {
+  static Widget _topTab(String text, {required bool active, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? Colors.white.withOpacity(0.20) : Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withOpacity(0.25)),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: active ? Colors.white : Colors.white.withOpacity(0.75),
+          fontWeight: active ? FontWeight.w800 : FontWeight.w700,
+          fontSize: 14,
+          shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
         ),
       ),
     );
   }
 
-  static Widget _actionBtn(IconData icon, String text, {VoidCallback? onTap}) {
-    return GestureDetector(
+  static String _fmtPrice(double v) => (v % 1 == 0) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+}
+
+//
+// -------------------- Right-side menu panel --------------------
+//
+
+class _SideMenuPanel extends StatefulWidget {
+  const _SideMenuPanel();
+
+  @override
+  State<_SideMenuPanel> createState() => _SideMenuPanelState();
+}
+
+class _SideMenuPanelState extends State<_SideMenuPanel> {
+  bool dark = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // panel eni: ekranın ~80%-i
+    final w = MediaQuery.of(context).size.width * 0.82;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: w,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(18),
+            bottomLeft: Radius.circular(18),
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: avatar + text + close
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.person, color: Colors.black54),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Xoş gəldiniz!', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                          SizedBox(height: 2),
+                          Text('Daxil olmaq üçün toxunun', style: TextStyle(color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                _menuRow(
+                  icon: Icons.nightlight_outlined,
+                  title: 'Qaranlıq rejim',
+                  trailing: Switch(
+                    value: dark,
+                    onChanged: (v) => setState(() => dark = v),
+                  ),
+                  onTap: () => setState(() => dark = !dark),
+                ),
+
+                _menuRow(
+                  icon: Icons.add_box_outlined,
+                  title: 'Elan yerləşdirin',
+                  onTap: () {
+                    // TODO: create ad
+                  },
+                ),
+                _menuRow(
+                  icon: Icons.help_outline,
+                  title: 'Tez-tez verilən suallar',
+                  onTap: () {},
+                ),
+                _menuRow(
+                  icon: Icons.language,
+                  title: 'Dil seçin',
+                  onTap: () {},
+                ),
+                _menuRow(
+                  icon: Icons.info_outline,
+                  title: 'Kömək edin',
+                  onTap: () {},
+                ),
+                _menuRow(
+                  icon: Icons.mail_outline,
+                  title: 'Bizimlə əlaqə saxlayın',
+                  onTap: () {},
+                ),
+                const Spacer(),
+
+                _menuRow(
+                  icon: Icons.login,
+                  title: 'Daxil ol',
+                  onTap: () {
+                    // TODO: auth
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _menuRow({
+    required IconData icon,
+    required String title,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.black87),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+//
+// -------------------- ReelActions --------------------
+//
+
+class ReelActions extends StatelessWidget {
+  const ReelActions({
+    super.key,
+    required this.onAvatarTap,
+    required this.onLike,
+    required this.onComment,
+    required this.onMore,
+    required this.avatarUrl,
+    required this.likeCount,
+    required this.commentCount,
+  });
+
+  final VoidCallback onAvatarTap;
+  final VoidCallback onLike;
+  final VoidCallback onComment;
+  final VoidCallback onMore;
+  final String? avatarUrl;
+  final int likeCount;
+  final int commentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: onAvatarTap,
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white24,
+            backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty) ? NetworkImage(avatarUrl!) : null,
+            child: (avatarUrl == null || avatarUrl!.isEmpty)
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _btn(Icons.favorite_border, '$likeCount', onLike),
+        const SizedBox(height: 14),
+        _btn(Icons.chat_bubble_outline, '$commentCount', onComment),
+        const SizedBox(height: 14),
+        _btn(Icons.more_horiz, '', onMore),
+      ],
+    );
+  }
+
+  Widget _btn(IconData icon, String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
       child: Column(
         children: [
           Container(
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.28),
+              color: Colors.black.withOpacity(0.22),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withOpacity(0.12)),
             ),
@@ -347,81 +588,94 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
           ),
           if (text.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ],
         ],
       ),
     );
   }
+}
 
-  static Widget _nextCard({
-    required String img,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 72,
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.58),
+//
+// -------------------- NextCards --------------------
+//
+
+class NextCards extends StatelessWidget {
+  const NextCards({super.key, required this.items, required this.onTap});
+
+  final List<dynamic> items; // səndə AdListItem-dır; dinamik saxladım ki build qırılmasın
+  final void Function(int adId) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: items.map((e) {
+        final int id = e.id;
+        final String coverUrl = e.coverUrl;
+        final String title = e.title;
+        final String subtitle = '${e.city} • ${e.category}';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: InkWell(
+            onTap: () => onTap(id),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.14)),
-          ),
-          child: Row(
-            children: [
-              ClipRRect(
+            child: Container(
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
                 borderRadius: BorderRadius.circular(16),
-                child: Image.network(
-                  img,
-                  width: 92,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 92,
-                    height: 72,
-                    color: Colors.white10,
-                    child: const Icon(Icons.image, color: Colors.white30),
-                  ),
-                ),
+                border: Border.all(color: Colors.white.withOpacity(0.15)),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      coverUrl,
+                      width: 92,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 92,
+                        height: 72,
+                        color: Colors.white10,
+                        child: const Icon(Icons.image, color: Colors.white30),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      }).toList(),
     );
   }
-
-  static String _fmtPrice(double v) => (v % 1 == 0) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 }

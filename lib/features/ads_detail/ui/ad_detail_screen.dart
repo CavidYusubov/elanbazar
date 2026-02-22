@@ -1,91 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/models/publisher.dart';
-import '../state/ad_detail_controller.dart';
-import 'package:elanbazar/features/profile/user_profile_screen.dart';
-import 'package:elanbazar/features/profile/store_profile_screen.dart';
-
-class AdDetailScreen extends ConsumerWidget {
-  final int adId;
+import '../state/ad_detail_provider.dart';
+import '../models/ad_detail.dart';
+import '../state/ad_similar_provider.dart';
+import '../models/similar_ad.dart';
+import '../../profile/user_profile_screen.dart';
+import '../../profile/store_profile_screen.dart';
+class AdDetailScreen extends ConsumerStatefulWidget {
   const AdDetailScreen({super.key, required this.adId});
+  final int adId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncAd = ref.watch(adDetailProvider(adId));
+  ConsumerState<AdDetailScreen> createState() => _AdDetailScreenState();
+}
 
-    return asyncAd.when(
+class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
+  final _page = PageController();
+  int _imgIndex = 0;
+  bool _descExpanded = false;
+
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(adDetailProvider(widget.adId));
+
+    return async.when(
       loading: () => const Scaffold(
+        backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(),
-        body: Center(child: Text('Detail error: $e')),
+        appBar: AppBar(title: const Text('Elan')),
+        body: Center(child: Text('Xəta: $e')),
       ),
-      data: (ad) {
-        final title = (ad['title'] ?? '').toString();
-        final priceStr = (ad['price_str'] ?? ad['price'] ?? '').toString();
-        final currency = (ad['currency'] ?? 'AZN').toString();
+      data: (AdDetail ad) {
+        final gallery = ad.galleryUrls;
 
-        final city = (ad['city'] is Map) ? (ad['city']['name'] ?? '') : '';
-        final desc = (ad['description'] ?? '').toString();
+        // seller phone priority: store > user
+        final phone = (ad.store?.phone?.trim().isNotEmpty == true)
+            ? ad.store!.phone!.trim()
+            : (ad.user?.phone?.trim() ?? '');
 
-        final images = (ad['images'] is List) ? (ad['images'] as List) : const [];
-        final coverUrl = (ad['cover_url'] ?? '').toString();
-
-        Publisher? publisher;
-        if (ad['publisher'] is Map) {
-          publisher = Publisher.fromJson(Map<String, dynamic>.from(ad['publisher']));
-        }
+        final storeOpenNow = ad.store?.isOpenNow;
 
         return Scaffold(
           backgroundColor: Colors.white,
-          body: CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                actions: [
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.share)),
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.favorite, color: Colors.red)),
-                ],
-                expandedHeight: 320,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      PageView.builder(
-                        itemCount: images.isNotEmpty ? images.length : 1,
-                        itemBuilder: (context, i) {
-                          final url = images.isNotEmpty
-                              ? (images[i]['url'] ?? images[i]['full_url'] ?? images[i]['path'] ?? coverUrl).toString()
-                              : coverUrl;
 
-                          return Image.network(
-                            url,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(color: Colors.black12),
-                          );
-                        },
+          // ✅ Detail-in öz contact barı
+         bottomNavigationBar: _ContactBar(
+  phone: phone,
+  onCall: phone.isEmpty ? null : () => _showPhoneSheet(context, phone),
+  onMessage: () => _toast(context, 'Mesaj: sonra qoşacağıq'),
+  avatarUrl: null,
+  onAvatarTap: () {
+  if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim())),
+    );
+    return;
+  }
+  if (ad.user != null) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: ad.user!.id)),
+    );
+    return;
+  }
+  _toast(context, 'Profil tapılmadı');
+},
+),
+
+          body: SafeArea(
+            top: false,
+            child: CustomScrollView(
+              slivers: [
+                // =========================
+                // GALLERY + TOPBAR
+                // =========================
+                SliverToBoxAdapter(
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1.2,
+                        child: PageView.builder(
+                          controller: _page,
+                          itemCount: gallery.length,
+                          onPageChanged: (i) => setState(() => _imgIndex = i),
+                          itemBuilder: (_, i) {
+                            final url = gallery[i];
+                            if (url.isEmpty) {
+                              return Container(
+                                color: Colors.grey.shade200,
+                                child: const Center(
+                                  child: Icon(Icons.image, size: 48, color: Colors.black26),
+                                ),
+                              );
+                            }
+                            return Image.network(url, fit: BoxFit.cover);
+                          },
+                        ),
                       ),
+
+                      // counter
                       Positioned(
-                        bottom: 16,
+                        bottom: 12,
                         left: 0,
                         right: 0,
                         child: Center(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.65),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              images.isNotEmpty ? '1 / ${images.length}' : '1 / 1',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                              '${_imgIndex + 1}/${gallery.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // topbar
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                            child: Row(
+                              children: [
+                                _TopIcon(
+                                  icon: Icons.arrow_back_ios_new,
+                                  onTap: () => Navigator.of(context).maybePop(),
+                                ),
+                                const Spacer(),
+                                _TopIcon(
+                                  icon: Icons.share,
+                                  onTap: () => _toast(context, 'Share: sonra'),
+                                ),
+                                const SizedBox(width: 10),
+                                _TopIcon(
+                                  icon: Icons.favorite_border,
+                                  onTap: () => _toast(context, 'Seçilmiş: sonra'),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -93,160 +160,343 @@ class AdDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-              ),
 
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$priceStr $currency',
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 6),
-                      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 14),
+                // =========================
+                // PRICE + TITLE + PACKAGES
+                // =========================
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_priceText(ad)} ${ad.currency}',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          ad.title,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 14),
 
-                      // VIP buttons row (sənin dizayna yaxın)
-                      Row(
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ServiceChip(
+                                title: 'Kəşf et',
+                                sub: '3 AZN-dən',
+                                color: Colors.green,
+                                onTap: () => _toast(context, 'Kəşf et payment: sonra'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _ServiceChip(
+                                title: 'VIP',
+                                sub: '5 AZN-dən',
+                                color: Colors.orange,
+                                onTap: () => _toast(context, 'VIP payment: sonra'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _ServiceChip(
+                                title: 'Premium',
+                                sub: '7 AZN-dən',
+                                color: Colors.red,
+                                onTap: () => _toast(context, 'Premium payment: sonra'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // =========================
+                // SPECS (Şəhər + attributes)
+                // =========================
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: _Card(
+                      child: Column(
                         children: [
-                          _pill('Kəşf et\n3 AZN-dən', Colors.green),
-                          const SizedBox(width: 10),
-                          _pill('VIP\n5 AZN-dən', Colors.orange),
-                          const SizedBox(width: 10),
-                          _pill('Premium\n7 AZN-dən', Colors.red),
+                          if (ad.city != null) _SpecRow(label: 'Şəhər', value: ad.city!.name),
+                          for (final a in ad.attributes)
+                            if (a.label.trim().isNotEmpty && a.value.trim().isNotEmpty)
+                              _SpecRow(label: a.label, value: a.value),
                         ],
                       ),
-
-                      const SizedBox(height: 18),
-                      const Text('Şəhər', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
-                      Text(city.toString(), style: const TextStyle(fontWeight: FontWeight.w900)),
-
-                      const SizedBox(height: 18),
-                      Text(desc, style: const TextStyle(height: 1.35)),
-
-                      const SizedBox(height: 18),
-                      const Divider(),
-
-                      // publisher block (user or store)
-                      if (publisher != null)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  if (publisher!.type == 'user') {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (_) => UserProfileScreen(userId: publisher!.id)),
-                                    );
-                                  } else if (publisher!.type == 'store') {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (_) => StoreProfileScreen(
-                                                slug: publisher!.slug ?? publisher!.id.toString(),
-                                              )),
-                                    );
-                                  }
-                                },
-                                child: CircleAvatar(
-                                  radius: 26,
-                                  backgroundImage: (publisher?.avatarUrl != null && publisher!.avatarUrl!.isNotEmpty)
-                                      ? NetworkImage(publisher!.avatarUrl!)
-                                      : null,
-                                  child: (publisher?.avatarUrl == null || publisher!.avatarUrl!.isEmpty)
-                                      ? const Icon(Icons.person)
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(publisher!.name, style: const TextStyle(fontWeight: FontWeight.w900)),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                        publisher!.type == 'user'
-                                            ? 'İstifadəçi profili'
-                                            : 'Mağaza profili',
-                                        style: const TextStyle(color: Colors.black54)),
-                                  ],
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {},
-                                child: const Text('Zəng et'),
-                              )
-                            ],
-                          ),
-                        ),
-                      if (publisher == null)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(radius: 26, child: Icon(Icons.person)),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('İstifadəçi', style: TextStyle(fontWeight: FontWeight.w900)),
-                                    SizedBox(height: 4),
-                                    Text('Profil detayı sonra bağlanacaq', style: TextStyle(color: Colors.black54)),
-                                  ],
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {},
-                                child: const Text('Zəng et'),
-                              )
-                            ],
-                          ),
-                        ),
-
-                      const SizedBox(height: 18),
-                      const Divider(),
-                      const SizedBox(height: 6),
-                      const Center(
-                        child: Text('BƏNZƏR ELANLAR', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black54)),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Similar ads: hələlik placeholder
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: 4,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.75,
-                        ),
-                        itemBuilder: (_, __) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 30),
-                    ],
+                    ),
                   ),
+                ),
+
+                // =========================
+                // DESCRIPTION (toggle)
+                // =========================
+                if ((ad.description ?? '').trim().isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ad.description!,
+                              maxLines: _descExpanded ? null : 4,
+                              overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.black.withOpacity(0.85),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            InkWell(
+                              onTap: () => setState(() => _descExpanded = !_descExpanded),
+                              child: Text(
+                                _descExpanded ? 'Daha az' : 'Ətraflı oxu',
+                                style: const TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // =========================
+                // SELLER CARD (store/user)
+                // =========================
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _SellerCard(
+                      isStore: ad.store != null,
+                      storeName: ad.store?.name,
+                      storeSlug: ad.store?.slug,
+                      storeOpenNow: storeOpenNow,
+                      userName: ad.user?.name,
+                      phone: phone,
+                      onOpenSeller: () {
+                      if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim()),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (ad.user != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => UserProfileScreen(userId: ad.user!.id),
+                          ),
+                        );
+                        return;
+                      }
+
+                      _toast(context, 'Profil tapılmadı');
+                    },
+                      onFollow: () => _toast(context, 'İzləmə: sonra'),
+                      onCall: phone.isEmpty ? null : () => _showPhoneSheet(context, phone),
+                      onMessage: () => _toast(context, 'Mesaj: sonra'),
+                    ),
+                  ),
+                ),
+
+                // =========================
+                // WARNING BOX
+                // =========================
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7E6),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text('Diqqət!', style: TextStyle(fontWeight: FontWeight.w900)),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Beh göndərməmişdən öncə sövdələşmənin təhlükəsiz olduğuna əmin olun!',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // =========================
+                // META + COMPLAINT
+                // =========================
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                    child: _Card(
+                      child: Column(
+                        children: [
+                          _MetaRow(label: 'Elanın nömrəsi:', value: '${ad.id}'),
+                          _MetaRow(label: 'Baxışların sayı:', value: '${ad.viewsCount}'),
+                          _MetaRow(label: 'Paylaşılıb:', value: _shortDate(ad.createdAt)),
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () => _openComplaint(context),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.flag_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Şikayət et', style: TextStyle(fontWeight: FontWeight.w900)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // =========================
+// SIMILAR ADS
+// =========================
+// =========================
+// SIMILAR ADS
+// =========================
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _SimilarAdsSection(adId: ad.id),
+                ),
+              ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openComplaint(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) {
+        final reasons = const [
+          'Artıq satılıb',
+          'Dələduz',
+          'Kontaktlar yanlış göstərilib',
+          'Qiymət yanlış göstərilib',
+          'Saxta elan',
+          'Şəkillər yanlışdır',
+          'Digər',
+        ];
+        return ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Şikayətin səbəbi', style: TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            for (final r in reasons)
+              ListTile(
+                title: Text(r, style: const TextStyle(fontWeight: FontWeight.w800)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openComplaintText(context, r);
+                },
+              ),
+            const SizedBox(height: 10),
+          ],
+        );
+      },
+    );
+  }
+void _openSeller(BuildContext context, AdDetail ad) {
+  if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim()),
+      ),
+    );
+    return;
+  }
+
+  if (ad.user != null && ad.user!.id != null) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: ad.user!.id!),
+      ),
+    );
+    return;
+  }
+
+  _toast(context, 'Profil tapılmadı');
+}
+  void _openComplaintText(BuildContext context, String reason) {
+    final c = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 10,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(reason, style: const TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: c,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: 'Burada şikayətinizı daha ətraflı təsvir edə bilərsiniz.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Eyni elana gün ərzində maksimum 3 şikayət göndərə bilərsiniz.',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _toast(context, 'Şikayət: API gələndə göndərəcəyik');
+                  },
+                  child: const Text('Göndər'),
                 ),
               ),
             ],
@@ -256,16 +506,544 @@ class AdDetailScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _pill(String t, Color c) {
-    return Expanded(
+  void _showPhoneSheet(BuildContext context, String phone) {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Nömrə', style: TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 10),
+              SelectableText(phone, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _toast(context, 'Zəng: url_launcher ilə qoşacağıq');
+                  },
+                  icon: const Icon(Icons.call),
+                  label: const Text('Zəng et'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static String _priceText(AdDetail ad) {
+    final ps = (ad.priceStr ?? '').trim();
+    if (ps.isNotEmpty) return ps;
+
+    final p = ad.price;
+    if (p == null) return '';
+    if (p % 1 == 0) return p.toStringAsFixed(0);
+    return p.toStringAsFixed(2);
+  }
+
+  static String _shortDate(String? iso) {
+    if (iso == null || iso.length < 10) return '';
+    final y = iso.substring(0, 4);
+    final m = iso.substring(5, 7);
+    final d = iso.substring(8, 10);
+    return '$d.$m.$y';
+  }
+
+  static void _toast(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+}
+
+class _TopIcon extends StatelessWidget {
+  const _TopIcon({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          border: Border.all(color: c, width: 1.3),
+          color: Colors.white.withOpacity(0.92),
           borderRadius: BorderRadius.circular(14),
-          color: c.withOpacity(0.06),
         ),
-        child: Text(t, style: TextStyle(color: c, fontWeight: FontWeight.w900)),
+        child: Icon(icon, size: 20),
+      ),
+    );
+  }
+}
+
+class _ServiceChip extends StatelessWidget {
+  const _ServiceChip({
+    required this.title,
+    required this.sub,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String sub;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      color: Colors.black.withOpacity(0.7),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.bolt, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SpecRow extends StatelessWidget {
+  const _SpecRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SellerCard extends StatelessWidget {
+  const _SellerCard({
+    required this.isStore,
+    required this.storeName,
+    required this.storeSlug,
+    required this.storeOpenNow,
+    required this.userName,
+    required this.phone,
+    required this.onOpenSeller,
+    required this.onFollow,
+    required this.onCall,
+    required this.onMessage,
+  });
+
+  final bool isStore;
+  final String? storeName;
+  final String? storeSlug;
+  final bool? storeOpenNow;
+  final String? userName;
+  final String phone;
+
+  final VoidCallback onOpenSeller;
+  final VoidCallback onFollow;
+  final VoidCallback? onCall;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = isStore ? (storeName ?? 'Mağaza') : (userName ?? 'İstifadəçi');
+    final badge = isStore ? 'Mağaza' : 'İstifadəçi';
+
+    final openTxt = storeOpenNow == null ? '' : (storeOpenNow! ? 'Açıqdır' : 'Bağlıdır');
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(radius: 22, backgroundColor: Colors.black12, child: Icon(Icons.person)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: onOpenSeller,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(badge, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                          ),
+                          if (openTxt.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              openTxt,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: (storeOpenNow ?? false) ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onOpenSeller,
+                  child: Text(isStore ? 'Mağazaya bax' : 'İstifadəçinin elanları'),
+                ),
+              ),
+              if (isStore) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onFollow,
+                    child: const Text('+ izlə'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: onCall,
+              icon: const Icon(Icons.call),
+              label: Text(phone.isEmpty ? 'Nömrə yoxdur' : 'Zəng et'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: onMessage,
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Mesaj yaz'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ContactBar extends StatelessWidget {
+  const _ContactBar({
+    required this.phone,
+    required this.onCall,
+    required this.onMessage,
+    required this.avatarUrl,
+    required this.onAvatarTap,
+  });
+
+  final String phone;
+  final VoidCallback? onCall;
+  final VoidCallback onMessage;
+  final String? avatarUrl;
+  final VoidCallback onAvatarTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.black.withOpacity(0.10))),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: onCall,
+                  icon: const Icon(Icons.call),
+                  label: const Text('Zəng et'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: onAvatarTap,
+              borderRadius: BorderRadius.circular(999),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.black12,
+                backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty)
+                    ? NetworkImage(avatarUrl!)
+                    : null,
+                child: (avatarUrl == null || avatarUrl!.isEmpty)
+                    ? const Icon(Icons.person)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: onMessage,
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Mesaj yaz'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SimilarAdsSection extends ConsumerWidget {
+  const _SimilarAdsSection({required this.adId});
+
+  final int adId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(adSimilarProvider(adId));
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Bənzər elanlar', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 12),
+
+          async.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Text('Xəta: $e', style: const TextStyle(fontWeight: FontWeight.w700)),
+            data: (list) {
+              final items = list
+                  .map((m) => SimilarAd.fromMap(m))
+                  .where((x) => x.id > 0)
+                  .toList();
+
+              if (items.isEmpty) {
+                return Text(
+                  'Bənzər elan tapılmadı',
+                  style: TextStyle(color: Colors.black.withOpacity(0.7), fontWeight: FontWeight.w700),
+                );
+              }
+
+              return SizedBox(
+                height: 240,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, i) => _SimilarAdTile(ad: items[i]),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimilarAdTile extends StatelessWidget {
+  const _SimilarAdTile({required this.ad});
+
+  final SimilarAd ad;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AdDetailScreen(adId: ad.id)),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 160,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.black12),
+          color: Colors.white,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 1.25,
+              child: ad.coverUrl.isEmpty
+                  ? Container(
+                      color: Colors.grey.shade200,
+                      child: const Center(child: Icon(Icons.image, size: 36, color: Colors.black26)),
+                    )
+                  : Image.network(ad.coverUrl, fit: BoxFit.cover),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+              child: Text(
+                '${ad.priceText} ${ad.currency}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+              child: Text(
+                ad.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
+              child: Text(
+                ad.cityName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.black.withOpacity(0.6),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
