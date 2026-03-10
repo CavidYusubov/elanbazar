@@ -4,6 +4,7 @@ import 'package:elanbazar/features/profile/user_profile_screen.dart';
 import 'package:elanbazar/features/profile/store_profile_screen.dart';
 
 class AdCard extends StatelessWidget {
+  final int? adId;
   final String title;
   final String price;
   final String currency;
@@ -14,10 +15,13 @@ class AdCard extends StatelessWidget {
   final Publisher? publisher;
   final bool isVip;
   final bool isPremium;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteTap;
   final VoidCallback onTap;
 
   const AdCard({
     super.key,
+    this.adId,
     required this.title,
     required this.price,
     required this.currency,
@@ -28,6 +32,8 @@ class AdCard extends StatelessWidget {
     required this.publisher,
     required this.isVip,
     required this.isPremium,
+    this.isFavorite = false,
+    this.onFavoriteTap,
     required this.onTap,
   });
 
@@ -37,13 +43,13 @@ class AdCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        clipBehavior: Clip.antiAlias, // ✅ kənardan daşmanı da kəsir
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 18,
               offset: const Offset(0, 8),
             )
@@ -53,7 +59,6 @@ class AdCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ şəkil - Expanded ilə yuxarı hissə
             Expanded(
               child: Stack(
                 children: [
@@ -61,20 +66,28 @@ class AdCard extends StatelessWidget {
                     child: Image.network(
                       coverUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200),
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(color: Colors.grey.shade200),
                     ),
                   ),
                   Positioned(
                     right: 10,
                     top: 10,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.92),
-                        shape: BoxShape.circle,
+                    child: GestureDetector(
+                      onTap: onFavoriteTap,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 18,
+                          color: isFavorite ? Colors.red : Colors.black87,
+                        ),
                       ),
-                      child: const Icon(Icons.favorite_border, size: 18),
                     ),
                   ),
                   if (isVip || isPremium)
@@ -84,7 +97,7 @@ class AdCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.70),
+                          color: Colors.black.withValues(alpha: 0.70),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
@@ -100,8 +113,6 @@ class AdCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // ✅ qiymət
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
               child: Text(
@@ -111,8 +122,6 @@ class AdCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ),
-
-            // ✅ title (maxLines 2 etsən daha stabil olar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Text(
@@ -122,8 +131,6 @@ class AdCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
-
-            // ✅ ALT hissə (Spacer YOX!)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
@@ -173,7 +180,7 @@ class AdCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w700,
                             fontSize: 11,
                           ),
@@ -184,7 +191,7 @@ class AdCard extends StatelessWidget {
                   Text(
                     _shortDate(date),
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                     ),

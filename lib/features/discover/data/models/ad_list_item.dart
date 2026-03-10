@@ -11,14 +11,15 @@ class AdListItem {
 
   final String cityName;
   final String userName;
-
-  /// publisher metadata (type, id, avatar etc) if available
   final Publisher? publisher;
 
   final String dateStr;
 
   final bool isVipActive;
   final bool isPremiumActive;
+
+  final int? categoryId;
+  final String categoryName;
 
   AdListItem({
     required this.id,
@@ -33,21 +34,23 @@ class AdListItem {
     required this.dateStr,
     required this.isVipActive,
     required this.isPremiumActive,
+    required this.categoryId,
+    required this.categoryName,
   });
 
   factory AdListItem.fromJson(Map<String, dynamic> json) {
     final city = (json['city'] is Map) ? (json['city']['name'] ?? '') : (json['city'] ?? '');
     final store = (json['store'] is Map) ? json['store'] : null;
+    final category = (json['category'] is Map) ? json['category'] : null;
 
-    // user adı: store varsa store.name, yoxsa "İstifadəçi {id}"
-    final userName =
-        (store != null && store['name'] != null) ? store['name'].toString() : 'İstifadəçi ${(json['user_id'] ?? '').toString()}';
+    final userName = (store != null && store['name'] != null)
+        ? store['name'].toString()
+        : 'İstifadəçi ${(json['user_id'] ?? '').toString()}';
 
     Publisher? publisher;
     if (json['publisher'] is Map) {
       publisher = Publisher.fromJson(Map<String, dynamic>.from(json['publisher']));
     } else if (store != null) {
-      // fallback: create a simple publisher for store
       publisher = Publisher(
         type: 'store',
         id: (store['id'] is num) ? (store['id'] as num).toInt() : int.tryParse('${store['id']}') ?? 0,
@@ -75,6 +78,10 @@ class AdListItem {
       dateStr: (json['created_at'] ?? '').toString(),
       isVipActive: json['is_vip_active'] == true,
       isPremiumActive: json['is_premium_active'] == true,
+      categoryId: category != null
+          ? ((category['id'] is num) ? (category['id'] as num).toInt() : int.tryParse('${category['id']}'))
+          : ((json['category_id'] is num) ? (json['category_id'] as num).toInt() : int.tryParse('${json['category_id']}')),
+      categoryName: category?['name']?.toString() ?? '',
     );
   }
 }

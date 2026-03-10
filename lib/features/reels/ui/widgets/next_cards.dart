@@ -21,9 +21,9 @@ class NextCards extends StatelessWidget {
             child: Container(
               height: 72,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
               child: Row(
                 children: [
@@ -51,7 +51,7 @@ class NextCards extends StatelessWidget {
                           Text('${e.city.name} • ${e.category.name}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white.withOpacity(0.85))),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
                         ],
                       ),
                     ),

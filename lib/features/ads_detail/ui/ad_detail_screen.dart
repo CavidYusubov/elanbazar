@@ -6,6 +6,7 @@ import '../state/ad_similar_provider.dart';
 import '../models/similar_ad.dart';
 import '../../profile/user_profile_screen.dart';
 import '../../profile/store_profile_screen.dart';
+import 'package:elanbazar/features/favorites/state/favorites_controller.dart';
 class AdDetailScreen extends ConsumerStatefulWidget {
   const AdDetailScreen({super.key, required this.adId});
   final int adId;
@@ -28,6 +29,7 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(adDetailProvider(widget.adId));
+    final isFav = ref.watch(isFavoriteProvider(widget.adId));
 
     return async.when(
       loading: () => const Scaffold(
@@ -58,9 +60,9 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
   onMessage: () => _toast(context, 'Mesaj: sonra qoşacağıq'),
   avatarUrl: null,
   onAvatarTap: () {
-  if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
+  if (ad.store != null && ad.store!.slug.trim().isNotEmpty) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim())),
+      MaterialPageRoute(builder: (_) => StoreProfileScreen(slug: ad.store!.slug.trim())),
     );
     return;
   }
@@ -114,7 +116,7 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.65),
+                              color: Colors.black.withValues(alpha: 0.65),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -149,9 +151,12 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
                                 ),
                                 const SizedBox(width: 10),
                                 _TopIcon(
-                                  icon: Icons.favorite_border,
-                                  onTap: () => _toast(context, 'Seçilmiş: sonra'),
-                                ),
+                                    icon: isFav ? Icons.favorite : Icons.favorite_border,
+                                    iconColor: isFav ? Colors.red : Colors.black,
+                                    onTap: () async {
+                                      await ref.read(favoritesControllerProvider.notifier).toggle(widget.adId);
+                                    },
+                                  ),
                               ],
                             ),
                           ),
@@ -252,7 +257,7 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
                               maxLines: _descExpanded ? null : 4,
                               overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.black.withOpacity(0.85),
+                                color: Colors.black.withValues(alpha: 0.85),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -284,10 +289,10 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
                       userName: ad.user?.name,
                       phone: phone,
                       onOpenSeller: () {
-                      if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
+                      if (ad.store != null && ad.store!.slug.trim().isNotEmpty) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim()),
+                            builder: (_) => StoreProfileScreen(slug: ad.store!.slug.trim()),
                           ),
                         );
                         return;
@@ -432,29 +437,6 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen> {
       },
     );
   }
-void _openSeller(BuildContext context, AdDetail ad) {
-  if (ad.store != null && (ad.store!.slug ?? '').trim().isNotEmpty) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StoreProfileScreen(slug: ad.store!.slug!.trim()),
-      ),
-    );
-    return;
-  }
-
-  if (ad.user != null && ad.user!.id != null) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => UserProfileScreen(userId: ad.user!.id!),
-      ),
-    );
-    return;
-  }
-
-  _toast(context, 'Profil tapılmadı');
-}
   void _openComplaintText(BuildContext context, String reason) {
     final c = TextEditingController();
     showModalBottomSheet(
@@ -563,9 +545,15 @@ void _openSeller(BuildContext context, AdDetail ad) {
 }
 
 class _TopIcon extends StatelessWidget {
-  const _TopIcon({required this.icon, required this.onTap});
+  const _TopIcon({
+    required this.icon,
+    required this.onTap,
+    this.iconColor = Colors.black,
+  });
+
   final IconData icon;
   final VoidCallback onTap;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -576,10 +564,10 @@ class _TopIcon extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.92),
+          color: Colors.white.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Icon(icon, size: 20),
+        child: Icon(icon, size: 20, color: iconColor),
       ),
     );
   }
@@ -607,7 +595,7 @@ class _ServiceChip extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.5), width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
           color: Colors.white,
         ),
         child: Row(
@@ -621,7 +609,7 @@ class _ServiceChip extends StatelessWidget {
                   Text(
                     sub,
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                     ),
@@ -633,7 +621,7 @@ class _ServiceChip extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(Icons.bolt, color: color),
@@ -659,7 +647,7 @@ class _Card extends StatelessWidget {
         border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
@@ -684,7 +672,7 @@ class _SpecRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+              style: TextStyle(color: Colors.black.withValues(alpha: 0.65), fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(width: 10),
@@ -714,7 +702,7 @@ class _MetaRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(color: Colors.black.withOpacity(0.65), fontWeight: FontWeight.w700),
+              style: TextStyle(color: Colors.black.withValues(alpha: 0.65), fontWeight: FontWeight.w700),
             ),
           ),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
@@ -778,7 +766,7 @@ class _SellerCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(badge, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
@@ -872,7 +860,7 @@ class _ContactBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black.withOpacity(0.10))),
+          border: Border(top: BorderSide(color: Colors.black.withValues(alpha: 0.10))),
         ),
         child: Row(
           children: [
@@ -952,7 +940,7 @@ class _SimilarAdsSection extends ConsumerWidget {
               if (items.isEmpty) {
                 return Text(
                   'Bənzər elan tapılmadı',
-                  style: TextStyle(color: Colors.black.withOpacity(0.7), fontWeight: FontWeight.w700),
+                  style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontWeight: FontWeight.w700),
                 );
               }
 
@@ -961,7 +949,7 @@ class _SimilarAdsSection extends ConsumerWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (context, index) => const SizedBox(width: 12),
                   itemBuilder: (_, i) => _SimilarAdTile(ad: items[i]),
                 ),
               );
@@ -1036,7 +1024,7 @@ class _SimilarAdTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),

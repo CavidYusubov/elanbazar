@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/shell/ui/main_shell.dart'; // ✅ bunu əlavə et
+import 'features/shell/ui/main_shell.dart'; 
 
 void main() {
   runApp(const ProviderScope(child: ElanBazarApp()));
@@ -14,7 +14,7 @@ class ElanBazarApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: MainShell(initialIndex: 0), // ✅ burda const yazma (MaterialApp artıq constdur)
+      home: MainShell(initialIndex: 0),
     );
   }
 }

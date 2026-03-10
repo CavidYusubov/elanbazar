@@ -1,189 +1,385 @@
 import 'package:flutter/material.dart';
-import 'package:elanbazar/features/reels/ui/reels_screen.dart';
-import 'package:elanbazar/features/discover/ui/discover_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MainShell extends StatefulWidget {
-  const MainShell({super.key, this.initialIndex = 0});
+import '../../auth/state/auth_controller.dart';
+import '../../auth/ui/auth_screen.dart';
+import '../../discover/ui/discover_screen.dart';
+import '../../favorites/ui/favorites_screen.dart';
+import '../../profile/ui/account_screen.dart';
+import '../../reels/ui/reels_screen.dart';
+
+enum HomeTopTab { reels, discover }
+
+class MainShell extends ConsumerStatefulWidget {
   final int initialIndex;
+  final HomeTopTab initialHomeTab;
+
+  const MainShell({
+    super.key,
+    this.initialIndex = 0,
+    this.initialHomeTab = HomeTopTab.reels,
+  });
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
-  late int _index;
+class _MainShellState extends ConsumerState<MainShell> {
+  late int _currentIndex;
+  late HomeTopTab _homeTab;
 
   @override
   void initState() {
     super.initState();
-    _index = widget.initialIndex;
+    _currentIndex = widget.initialIndex;
+    _homeTab = widget.initialHomeTab;
   }
 
-  void _go(int i) => setState(() => _index = i);
+  void _goToTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _openReels() {
+    setState(() {
+      _currentIndex = 0;
+      _homeTab = HomeTopTab.reels;
+    });
+  }
+
+  void _openDiscover() {
+    setState(() {
+      _currentIndex = 0;
+      _homeTab = HomeTopTab.discover;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 0: Reels, 1: Discover
+    final auth = ref.watch(authControllerProvider);
+
     final pages = <Widget>[
-      const ReelsScreen(),
-      const DiscoverScreen(),
+      HomeSwitcherScreen(
+        currentTab: _homeTab,
+        onOpenReels: _openReels,
+        onOpenDiscover: _openDiscover,
+      ),
+      const FavoritesScreen(),
+      const _CreateAdGateScreen(),
+      const _MessagesGateScreen(),
+      const _AccountGateScreen(),
     ];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: IndexedStack(
-        index: _index,
+        index: _currentIndex,
         children: pages,
       ),
-      bottomNavigationBar: ElanbazarBottomNav(
-        activeIndex: _index,
-        onTap: (i) {
-          // yalnız Reels və Discover switch edirik
-          if (i == 0) _go(0); // Əsas -> Reels (hələlik)
-          if (i == 1) _go(1); // Seçilmişlər -> Discover (hələlik)
-          // qalanları hələlik boş
-        },
-        onCreateTap: () {
-          // + düyməsi
-          showModalBottomSheet(
-            context: context,
-            showDragHandle: true,
-            builder: (_) => const Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Elan yerləşdir (sonra)', style: TextStyle(fontWeight: FontWeight.w900)),
-                  SizedBox(height: 10),
-                  Text('Burda create flow olacaq.'),
-                  SizedBox(height: 18),
-                ],
-              ),
-            ),
-          );
-        },
+      bottomNavigationBar: _AppBottomNav(
+        currentIndex: _currentIndex,
+        isAuthenticated: auth.authenticated,
+        accountAvatarUrl: auth.user?.photoUrl,
+        onTap: _goToTab,
       ),
     );
   }
 }
 
-class ElanbazarBottomNav extends StatelessWidget {
-  const ElanbazarBottomNav({
+class HomeSwitcherScreen extends StatelessWidget {
+  final HomeTopTab currentTab;
+  final VoidCallback onOpenReels;
+  final VoidCallback onOpenDiscover;
+
+  const HomeSwitcherScreen({
     super.key,
-    required this.activeIndex,
-    required this.onTap,
-    required this.onCreateTap,
+    required this.currentTab,
+    required this.onOpenReels,
+    required this.onOpenDiscover,
   });
-
-  final int activeIndex; // 0 reels, 1 discover
-  final void Function(int index) onTap;
-  final VoidCallback onCreateTap;
-
-  static const _activeColor = Color(0xFF00B26A); // yaşıl
-  static const _inactiveColor = Color(0xFF7A7A7A);
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 74,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          // bar
-          Container(
-            height: 62,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.black.withOpacity(0.08))),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, -6),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _item(
-                  icon: Icons.home_outlined,
-                  label: 'Əsas',
-                  active: activeIndex == 0,
-                  onTap: () => onTap(0),
-                ),
-                _item(
-                  icon: Icons.favorite_border,
-                  label: 'Seçilmişlər',
-                  active: activeIndex == 1,
-                  onTap: () => onTap(1),
-                ),
+    if (currentTab == HomeTopTab.discover) {
+      return DiscoverScreen(
+        onOpenReels: onOpenReels,
+      );
+    }
 
-                const SizedBox(width: 66), // + üçün boşluq
+    return ReelsScreen(
+      onOpenDiscover: onOpenDiscover,
+    );
+  }
+}
 
-                _item(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Mesajlar',
-                  active: false,
-                  onTap: () {},
-                ),
-                _item(
-                  icon: Icons.person_outline,
-                  label: 'Hesab',
-                  active: false,
-                  onTap: () {},
-                ),
-              ],
-            ),
+class _AppBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final bool isAuthenticated;
+  final String? accountAvatarUrl;
+
+  const _AppBottomNav({
+    required this.currentIndex,
+    required this.onTap,
+    required this.isAuthenticated,
+    required this.accountAvatarUrl,
+  });
+
+  static const Color _active = Color(0xff6b7a99);
+  static const Color _inactive = Color(0xff7b8494);
+  static const Color _green = Color(0xff12bf82);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 74,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Color(0xffe9edf2)),
           ),
-
-          // floating +
-          Positioned(
-            bottom: 18,
-            child: GestureDetector(
-              onTap: onCreateTap,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: const BoxDecoration(
-                  color: _activeColor,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add, color: Colors.white, size: 30),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _NavItem(
+                icon: Icons.home_outlined,
+                label: 'Əsas',
+                active: currentIndex == 0,
+                onTap: () => onTap(0),
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: _NavItem(
+                icon: Icons.favorite_border,
+                label: 'Seçilmişlər',
+                active: currentIndex == 1,
+                onTap: () => onTap(1),
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => onTap(2),
+                  child: Container(
+                    width: 58,
+                    height: 58,
+                    decoration: const BoxDecoration(
+                      color: _green,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x3312BF82),
+                          blurRadius: 14,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _NavItem(
+                icon: Icons.chat_bubble_outline,
+                label: 'Mesajlar',
+                active: currentIndex == 3,
+                onTap: () => onTap(3),
+              ),
+            ),
+            Expanded(
+              child: _NavItem(
+                icon: Icons.person_outline,
+                label: 'Hesab',
+                active: currentIndex == 4,
+                onTap: () => onTap(4),
+                useAvatar: isAuthenticated,
+                avatarUrl: accountAvatarUrl,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _item({
-    required IconData icon,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final c = active ? _activeColor : _inactiveColor;
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final bool useAvatar;
+  final String? avatarUrl;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.useAvatar = false,
+    this.avatarUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const activeColor = Color(0xff6b7a99);
+    const inactiveColor = Color(0xff7b8494);
+
+    final hasAvatar = useAvatar && avatarUrl != null && avatarUrl!.trim().isNotEmpty;
 
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        width: 70,
+        height: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: c),
-            const SizedBox(height: 3),
+            if (useAvatar)
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xffe5e7eb),
+                  border: active ? Border.all(color: activeColor, width: 1.5) : null,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: hasAvatar
+                    ? Image.network(
+                        avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.person,
+                          size: 18,
+                          color: active ? activeColor : inactiveColor,
+                        ),
+                      )
+                    : Icon(
+                        Icons.person,
+                        size: 18,
+                        color: active ? activeColor : inactiveColor,
+                      ),
+              )
+            else
+              Icon(
+                icon,
+                size: 24,
+                color: active ? activeColor : inactiveColor,
+              ),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: c,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: active ? activeColor : inactiveColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MessagesGateScreen extends ConsumerWidget {
+  const _MessagesGateScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+
+    if (!auth.initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.authenticated) {
+      return const AuthScreen();
+    }
+
+    return const _MessagesScreen();
+  }
+}
+
+class _CreateAdGateScreen extends ConsumerWidget {
+  const _CreateAdGateScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+
+    if (!auth.initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.authenticated) {
+      return const AuthScreen();
+    }
+
+    return const _CreateAdScreen();
+  }
+}
+
+class _AccountGateScreen extends ConsumerWidget {
+  const _AccountGateScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+
+    if (!auth.initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!auth.authenticated) {
+      return const AuthScreen();
+    }
+
+    return const AccountScreen();
+  }
+}
+
+class _CreateAdScreen extends StatelessWidget {
+  const _CreateAdScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Text(
+          'Yeni elan',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessagesScreen extends StatelessWidget {
+  const _MessagesScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Text(
+          'Mesajlar',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
     );

@@ -9,22 +9,44 @@ class ReelActions extends StatelessWidget {
     required this.avatarUrl,
     required this.likeCount,
     required this.commentCount,
+    required this.isFavorite,
+    this.onAvatarTap,
   });
 
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onMore;
+  final VoidCallback? onAvatarTap;
+
   final String? avatarUrl;
   final int likeCount;
   final int commentCount;
+  final bool isFavorite;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        CircleAvatar(radius: 22, backgroundColor: Colors.white24, child: const Icon(Icons.person, color: Colors.white)),
+        GestureDetector(
+          onTap: onAvatarTap,
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white24,
+            backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty)
+                ? NetworkImage(avatarUrl!)
+                : null,
+            child: (avatarUrl == null || avatarUrl!.isEmpty)
+                ? const Icon(Icons.person, color: Colors.white)
+                : null,
+          ),
+        ),
         const SizedBox(height: 18),
-        _btn(Icons.favorite_border, '$likeCount', onLike),
+        _btn(
+          isFavorite ? Icons.favorite : Icons.favorite_border,
+          '$likeCount',
+          onLike,
+          color: isFavorite ? Colors.red : Colors.white,
+        ),
         const SizedBox(height: 14),
         _btn(Icons.chat_bubble_outline, '$commentCount', onComment),
         const SizedBox(height: 14),
@@ -33,15 +55,27 @@ class ReelActions extends StatelessWidget {
     );
   }
 
-  Widget _btn(IconData icon, String text, VoidCallback onTap) {
+  Widget _btn(
+    IconData icon,
+    String text,
+    VoidCallback onTap, {
+    Color color = Colors.white,
+  }) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 28),
+          Icon(icon, color: color, size: 28),
           if (text.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ]
         ],
       ),

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../state/reels_controller.dart';
-import '../../ads_detail/ui/ad_detail_screen.dart';
-import 'package:elanbazar/features/discover/ui/discover_screen.dart';
-import 'package:elanbazar/features/profile/user_profile_screen.dart';
+import 'package:elanbazar/features/favorites/state/favorites_controller.dart';
 import 'package:elanbazar/features/profile/store_profile_screen.dart';
+import 'package:elanbazar/features/profile/user_profile_screen.dart';
+import 'package:elanbazar/features/shell/ui/main_shell.dart';
 
-// Əgər NextCards səndə ayrıca fayldadırsa, import elə.
-// import 'next_cards.dart';
-// import '../widgets/reel_actions.dart';
+import '../../ads_detail/ui/ad_detail_screen.dart';
+import '../state/reels_controller.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
-  const ReelsScreen({super.key});
+  final VoidCallback? onOpenDiscover;
+
+  const ReelsScreen({
+    super.key,
+    this.onOpenDiscover,
+  });
 
   @override
   ConsumerState<ReelsScreen> createState() => _ReelsScreenState();
@@ -53,7 +55,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'menu',
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, __, ___) => const SizedBox.shrink(),
       transitionBuilder: (ctx, anim, __, ___) {
@@ -97,34 +99,33 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
         itemCount: st.items.length,
         itemBuilder: (context, i) {
           final ad = st.items[i];
+          final isFav = ref.watch(isFavoriteProvider(ad.id));
           final next3 = st.items.skip(i + 1).take(3).toList();
 
-          // UI ölçüləri
-          const rightRailWidth = 86.0;
-          const headerH = 56.0; // ən yuxarı row hündürlüyü
-
-          final isStore = (ad.publisher?.type == 'store');
+          const rightRailWidth = 55.0;
+          final isStore = ad.publisher?.type == 'store';
 
           return Column(
             children: [
-              // ✅ TOP (image area)
               Expanded(
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // BG image
                     Image.network(
                       ad.coverUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.black,
                         child: const Center(
-                          child: Icon(Icons.image_not_supported, color: Colors.white24, size: 48),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white24,
+                            size: 48,
+                          ),
                         ),
                       ),
                     ),
 
-                    // yüngül qara gradient (üst UI oxunsun)
                     Positioned.fill(
                       child: IgnorePointer(
                         child: DecoratedBox(
@@ -133,7 +134,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.center,
                               colors: [
-                                Colors.black.withOpacity(0.35),
+                                Colors.black.withValues(alpha: 0.35),
                                 Colors.transparent,
                               ],
                             ),
@@ -142,114 +143,122 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                       ),
                     ),
 
-                    // ✅ Detail tap layer (yalnız boş sahə)
-                    // Header + right rail çıxılır
-                Positioned.fill(
-  child: SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.only(top: 56), // header hündürlüyü
-      child: Row(
-        children: [
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openDetail(context, ad.id),
-              ),
-            ),
-          ),
-          const SizedBox(width: rightRailWidth),
-        ],
-      ),
-    ),
-  ),
-),
-
-                  
-Positioned(
-  left: 0,
-  right: 0,
-  top: 0,
-  child: SafeArea(
-    bottom: false,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: SizedBox(
-        height: 56,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (isStore)
-              GestureDetector(
-                onTap: () {
-                  final pub = ad.publisher;
-                  if (pub != null) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => StoreProfileScreen(
-                          slug: pub.slug ?? pub.id.toString(),
+                    Positioned.fill(
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 56),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _openDetail(context, ad.id),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: rightRailWidth),
+                            ],
+                          ),
                         ),
                       ),
-                    );
-                  }
-                },
-                child: Row(
-                  children: [
-                    const Icon(Icons.storefront, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'Mağaza',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                    ),
+
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: SizedBox(
+                            height: 56,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (isStore)
+                                  GestureDetector(
+                                    onTap: () {
+                                      final pub = ad.publisher;
+                                      if (pub != null) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => StoreProfileScreen(
+                                              slug: pub.slug ?? pub.id.toString(),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Row(
+                                      children: const [
+                                        Icon(Icons.storefront, color: Colors.white, size: 22),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Mağaza',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(width: 64),
+
+                                const Spacer(),
+
+                                _topTab('Sənin üçün', active: true, onTap: () {}),
+                                const SizedBox(width: 14),
+                                _topTab(
+                                  'Kəşf et',
+                                  active: false,
+                                  onTap: () {
+                                    if (widget.onOpenDiscover != null) {
+                                      widget.onOpenDiscover!();
+                                      return;
+                                    }
+
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                        builder: (_) => const MainShell(
+                                          initialIndex: 0,
+                                          initialHomeTab: HomeTopTab.discover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+
+                                const Spacer(),
+
+                                InkWell(
+                                  onTap: () => _openSideMenu(context),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.16),
+                                      ),
+                                    ),
+                                    child: const Icon(Icons.menu, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              )
-            else
-              const SizedBox(width: 64),
 
-            const Spacer(),
-
-            _topTab('Sənin üçün', active: true, onTap: () {}),
-            const SizedBox(width: 14),
-            _topTab(
-              'Kəşf et',
-              active: false,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const DiscoverScreen()),
-                );
-              },
-            ),
-
-            const Spacer(),
-
-            InkWell(
-              onTap: () => _openSideMenu(context),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withOpacity(0.16)),
-                ),
-                child: const Icon(Icons.menu, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  ),
-),
-
-                    // ✅ Right actions (avatar / like / comment / more) — bunlar detail layer-dən kənardadır
                     Positioned(
-                      right: 12,
+                      right: 5,
                       top: 90,
                       child: SizedBox(
                         width: rightRailWidth,
@@ -257,31 +266,32 @@ Positioned(
                           avatarUrl: ad.publisher?.avatarUrl,
                           likeCount: ad.likeCount,
                           commentCount: ad.commentCount,
+                          isFavorite: isFav,
                           onAvatarTap: () {
                             final pub = ad.publisher;
                             if (pub != null) {
                               if (pub.type == 'user') {
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => UserProfileScreen(userId: pub.id)),
+                                  MaterialPageRoute(
+                                    builder: (_) => UserProfileScreen(userId: pub.id),
+                                  ),
                                 );
                               } else if (pub.type == 'store') {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => StoreProfileScreen(slug: pub.slug ?? pub.id.toString()),
+                                    builder: (_) => StoreProfileScreen(
+                                      slug: pub.slug ?? pub.id.toString(),
+                                    ),
                                   ),
                                 );
                               }
                             }
                           },
-                          onLike: () {
-                            // TODO: like
+                          onLike: () async {
+                            await ref.read(favoritesControllerProvider.notifier).toggle(ad.id);
                           },
-                          onComment: () {
-                            // TODO: comments
-                          },
-                          onMore: () {
-                            // TODO: more menu
-                          },
+                          onComment: () {},
+                          onMore: () {},
                         ),
                       ),
                     ),
@@ -289,13 +299,14 @@ Positioned(
                 ),
               ),
 
-              // ✅ BOTTOM info + next cards
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.70),
-                  border: Border(top: BorderSide(color: Colors.white.withOpacity(0.10))),
+                  color: Colors.black.withValues(alpha: 0.70),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,18 +337,16 @@ Positioned(
                     Text(
                       '${ad.city} • ${ad.category}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.88),
+                        color: Colors.white.withValues(alpha: 0.88),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
                       ),
                     ),
                     const SizedBox(height: 12),
-
                     NextCards(
                       items: next3,
                       onTap: (adId) {
-                        // next card -> həmin reel-ə jump
                         final idx = st.items.indexWhere((x) => x.id == adId);
                         if (idx != -1) _jumpTo(idx);
                       },
@@ -352,27 +361,28 @@ Positioned(
     );
   }
 
-  static Widget _topTab(String text, {required bool active, required VoidCallback onTap}) {
+  static Widget _topTab(
+    String text, {
+    required bool active,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Text(
         text,
         style: TextStyle(
-          color: active ? Colors.white : Colors.white.withOpacity(0.75),
+          color: active ? Colors.white : Colors.white.withValues(alpha: 0.75),
           fontWeight: active ? FontWeight.w800 : FontWeight.w700,
-          fontSize: 14,
+          fontSize: active ? 18 : 16,
           shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
         ),
       ),
     );
   }
 
-  static String _fmtPrice(double v) => (v % 1 == 0) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+  static String _fmtPrice(double v) =>
+      (v % 1 == 0) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 }
-
-//
-// -------------------- Right-side menu panel --------------------
-//
 
 class _SideMenuPanel extends StatefulWidget {
   const _SideMenuPanel();
@@ -386,7 +396,6 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
 
   @override
   Widget build(BuildContext context) {
-    // panel eni: ekranın ~80%-i
     final w = MediaQuery.of(context).size.width * 0.82;
 
     return Material(
@@ -407,7 +416,6 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header: avatar + text + close
                 Row(
                   children: [
                     Container(
@@ -437,7 +445,6 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
                 _menuRow(
                   icon: Icons.nightlight_outlined,
                   title: 'Qaranlıq rejim',
@@ -447,13 +454,10 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
                   ),
                   onTap: () => setState(() => dark = !dark),
                 ),
-
                 _menuRow(
                   icon: Icons.add_box_outlined,
                   title: 'Elan yerləşdirin',
-                  onTap: () {
-                    // TODO: create ad
-                  },
+                  onTap: () {},
                 ),
                 _menuRow(
                   icon: Icons.help_outline,
@@ -476,13 +480,10 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
                   onTap: () {},
                 ),
                 const Spacer(),
-
                 _menuRow(
                   icon: Icons.login,
                   title: 'Daxil ol',
-                  onTap: () {
-                    // TODO: auth
-                  },
+                  onTap: () {},
                 ),
               ],
             ),
@@ -513,17 +514,13 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            if (trailing != null) trailing,
+            ...[trailing].whereType<Widget>(),
           ],
         ),
       ),
     );
   }
 }
-
-//
-// -------------------- ReelActions --------------------
-//
 
 class ReelActions extends StatelessWidget {
   const ReelActions({
@@ -535,6 +532,7 @@ class ReelActions extends StatelessWidget {
     required this.avatarUrl,
     required this.likeCount,
     required this.commentCount,
+    required this.isFavorite,
   });
 
   final VoidCallback onAvatarTap;
@@ -544,6 +542,7 @@ class ReelActions extends StatelessWidget {
   final String? avatarUrl;
   final int likeCount;
   final int commentCount;
+  final bool isFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -554,14 +553,21 @@ class ReelActions extends StatelessWidget {
           child: CircleAvatar(
             radius: 22,
             backgroundColor: Colors.white24,
-            backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty) ? NetworkImage(avatarUrl!) : null,
+            backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty)
+                ? NetworkImage(avatarUrl!)
+                : null,
             child: (avatarUrl == null || avatarUrl!.isEmpty)
                 ? const Icon(Icons.person, color: Colors.white)
                 : null,
           ),
         ),
         const SizedBox(height: 18),
-        _btn(Icons.favorite_border, '$likeCount', onLike),
+        _btn(
+          isFavorite ? Icons.favorite : Icons.favorite_border,
+          '$likeCount',
+          onLike,
+          color: isFavorite ? Colors.red : Colors.white,
+        ),
         const SizedBox(height: 14),
         _btn(Icons.chat_bubble_outline, '$commentCount', onComment),
         const SizedBox(height: 14),
@@ -570,7 +576,12 @@ class ReelActions extends StatelessWidget {
     );
   }
 
-  Widget _btn(IconData icon, String text, VoidCallback onTap) {
+  Widget _btn(
+    IconData icon,
+    String text,
+    VoidCallback onTap, {
+    Color color = Colors.white,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -580,15 +591,21 @@ class ReelActions extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.22),
+              color: Colors.black.withValues(alpha: 0.22),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: color, size: 24),
           ),
           if (text.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ],
       ),
@@ -596,14 +613,10 @@ class ReelActions extends StatelessWidget {
   }
 }
 
-//
-// -------------------- NextCards --------------------
-//
-
 class NextCards extends StatelessWidget {
   const NextCards({super.key, required this.items, required this.onTap});
 
-  final List<dynamic> items; // səndə AdListItem-dır; dinamik saxladım ki build qırılmasın
+  final List<dynamic> items;
   final void Function(int adId) onTap;
 
   @override
@@ -625,9 +638,9 @@ class NextCards extends StatelessWidget {
             child: Container(
               height: 72,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
               child: Row(
                 children: [
@@ -638,7 +651,7 @@ class NextCards extends StatelessWidget {
                       width: 92,
                       height: 72,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (context, error, stackTrace) => Container(
                         width: 92,
                         height: 72,
                         color: Colors.white10,
@@ -657,14 +670,20 @@ class NextCards extends StatelessWidget {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
