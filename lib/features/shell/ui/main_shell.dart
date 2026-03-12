@@ -10,7 +10,8 @@ import '../../favorites/ui/favorites_screen.dart';
 import '../../profile/ui/account_screen.dart';
 import '../../reels/ui/reels_screen.dart';
 import '../../ad_create/ui/ad_create_screen.dart';
-
+import '../../messages/ui/messages_list_screen.dart';
+import '../../messages/state/messages_unread_controller.dart';
 enum HomeTopTab { reels, discover }
 
 class MainShell extends ConsumerStatefulWidget {
@@ -58,49 +59,51 @@ class _MainShellState extends ConsumerState<MainShell> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
+ @override
+Widget build(BuildContext context) {
+  final auth = ref.watch(authControllerProvider);
+  final unreadCount = ref.watch(messagesUnreadControllerProvider);
 
-    final pages = <Widget>[
-      HomeSwitcherScreen(
-        currentTab: _homeTab,
-        onOpenReels: _openReels,
-        onOpenDiscover: _openDiscover,
-      ),
-      const FavoritesScreen(),
-      const _CreateAdGateScreen(),
-      const _MessagesGateScreen(),
-      const _AccountGateScreen(),
-    ];
+  final pages = <Widget>[
+    HomeSwitcherScreen(
+      currentTab: _homeTab,
+      onOpenReels: _openReels,
+      onOpenDiscover: _openDiscover,
+    ),
+    const FavoritesScreen(),
+    const _CreateAdGateScreen(),
+    const _MessagesGateScreen(),
+    const _AccountGateScreen(),
+  ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xff050608),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xff090b10),
-              Color(0xff06070a),
-              Color(0xff040506),
-            ],
-          ),
-        ),
-        child: IndexedStack(
-          index: _currentIndex,
-          children: pages,
+  return Scaffold(
+    backgroundColor: const Color(0xff050608),
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xff090b10),
+            Color(0xff06070a),
+            Color(0xff040506),
+          ],
         ),
       ),
-      bottomNavigationBar: _AppBottomNav(
-        currentIndex: _currentIndex,
-        isAuthenticated: auth.authenticated,
-        accountAvatarUrl: auth.user?.photoUrl,
-        onTap: _goToTab,
+      child: IndexedStack(
+        index: _currentIndex,
+        children: pages,
       ),
-    );
-  }
+    ),
+    bottomNavigationBar: _AppBottomNav(
+      currentIndex: _currentIndex,
+      isAuthenticated: auth.authenticated,
+      accountAvatarUrl: auth.user?.photoUrl,
+      unreadCount: unreadCount,
+      onTap: _goToTab,
+    ),
+  );
+}
 }
 
 class HomeSwitcherScreen extends StatelessWidget {
@@ -134,12 +137,14 @@ class _AppBottomNav extends StatefulWidget {
   final ValueChanged<int> onTap;
   final bool isAuthenticated;
   final String? accountAvatarUrl;
+  final int unreadCount;
 
   const _AppBottomNav({
     required this.currentIndex,
     required this.onTap,
     required this.isAuthenticated,
     required this.accountAvatarUrl,
+    required this.unreadCount,
   });
 
   @override
@@ -335,16 +340,18 @@ class _AppBottomNavState extends State<_AppBottomNav>
                             ),
                           ),
                         ),
+                       
                         Expanded(
-                          child: _NavItem(
-                            icon: Icons.chat_bubble_rounded,
-                            inactiveIcon: Icons.chat_bubble_outline_rounded,
-                            label: 'Mesajlar',
-                            active: widget.currentIndex == 3,
-                            onTap: () => widget.onTap(3),
-                          ),
-                        ),
-                        Expanded(
+  child: _NavItem(
+    icon: Icons.chat_bubble_rounded,
+    inactiveIcon: Icons.chat_bubble_outline_rounded,
+    label: 'Mesajlar',
+    active: widget.currentIndex == 3,
+    unreadCount: widget.unreadCount,
+    onTap: () => widget.onTap(3),
+  ),
+),
+Expanded(
                           child: _NavItem(
                             icon: Icons.person_rounded,
                             inactiveIcon: Icons.person_outline_rounded,
@@ -354,7 +361,7 @@ class _AppBottomNavState extends State<_AppBottomNav>
                             useAvatar: widget.isAuthenticated,
                             avatarUrl: widget.accountAvatarUrl,
                           ),
-                        ),
+                        )
                       ],
                     ),
                   ),
@@ -393,6 +400,7 @@ class _NavItem extends StatelessWidget {
   final VoidCallback onTap;
   final bool useAvatar;
   final String? avatarUrl;
+  final int unreadCount;
 
   const _NavItem({
     required this.icon,
@@ -402,6 +410,7 @@ class _NavItem extends StatelessWidget {
     required this.onTap,
     this.useAvatar = false,
     this.avatarUrl,
+    this.unreadCount = 0,
   });
 
   static const Color activeColor = Color(0xfff5f7fb);
@@ -455,30 +464,69 @@ class _NavItem extends StatelessWidget {
                               avatarUrl: avatarUrl,
                             )
                           : Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                if (active)
-                                  Container(
-                                    width: 26,
-                                    height: 26,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Color(0x5512BF82),
-                                          blurRadius: 10,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                Icon(
-                                  active ? icon : inactiveIcon,
-                                  size: 24,
-                                  color: active ? activeColor : inactiveColor,
-                                ),
-                              ],
-                            ),
+    clipBehavior: Clip.none,
+    alignment: Alignment.center,
+    children: [
+      if (active)
+        Container(
+          width: 26,
+          height: 26,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x5512BF82),
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        ),
+      Icon(
+        active ? icon : inactiveIcon,
+        size: 24,
+        color: active ? activeColor : inactiveColor,
+      ),
+      if (unreadCount > 0 && label == 'Mesajlar')
+        Positioned(
+          right: -8,
+          top: -7,
+          child: Container(
+            constraints: const BoxConstraints(
+              minWidth: 18,
+              minHeight: 18,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF4444),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: const Color(0xff0c0f15),
+                width: 1.5,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x55EF4444),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                unreadCount > 99 ? '99+' : '$unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  ),
                     ),
                     const SizedBox(height: 5),
                     AnimatedDefaultTextStyle(
@@ -589,7 +637,7 @@ class _MessagesGateScreen extends ConsumerWidget {
       return const AuthScreen();
     }
 
-    return const _MessagesScreen();
+    return const MessagesListScreen();
   }
 }
 
@@ -659,18 +707,6 @@ class _MessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xff050608),
-      body: Center(
-        child: Text(
-          'Mesajlar',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
+    return const MessagesListScreen();
   }
 }
