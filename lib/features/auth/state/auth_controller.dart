@@ -158,6 +158,24 @@ void patchUser(AuthUser user) {
     clearError: true,
   );
 }
+
+Future<void> refreshMe() async {
+  try {
+    final user = await _repo.me();
+
+    state = state.copyWith(
+      user: user,
+      authenticated: true,
+      initialized: true,
+      loading: false,
+      clearError: true,
+    );
+  } catch (e) {
+    state = state.copyWith(
+      loading: false,
+    );
+  }
+}
   Future<void> verifyOtp({
     required String phone,
     required String code,

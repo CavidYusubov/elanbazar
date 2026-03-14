@@ -9,6 +9,7 @@ import '../models/ad_detail.dart';
 import '../state/ad_similar_provider.dart';
 import '../models/similar_ad.dart';
 
+import '../../comments/ui/comments_sheet.dart';
 import '../../profile/user_profile_screen.dart';
 import '../../profile/store_profile_screen.dart';
 import '../../favorites/state/favorites_controller.dart';
@@ -192,6 +193,15 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: _CommentsEntrySection(
+                    adId: ad.id,
+                    onOpenComments: () => _openCommentsSheet(ad.id),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: _SellerCard(
                     ad: ad,
                     sellerName: sellerName,
@@ -239,6 +249,17 @@ class _AdDetailScreenState extends ConsumerState<AdDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openCommentsSheet(int adId) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (_) => CommentsSheet(adId: adId),
     );
   }
 
@@ -592,7 +613,8 @@ class _FullScreenGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = MediaQuery.of(context).size.height * 0.68;
+    final size = MediaQuery.of(context).size;
+    final h = size.width * 0.74;
     final parallax = (scrollOffset * 0.18).clamp(0.0, 40.0);
 
     return SizedBox(
@@ -622,7 +644,6 @@ class _FullScreenGallery extends StatelessWidget {
               ),
             ),
           ),
-
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -642,7 +663,6 @@ class _FullScreenGallery extends StatelessWidget {
               ),
             ),
           ),
-
           Positioned(
             top: 0,
             left: 0,
@@ -674,7 +694,6 @@ class _FullScreenGallery extends StatelessWidget {
               ),
             ),
           ),
-
           if (gallery.length > 1)
             Positioned(
               bottom: 28,
@@ -701,7 +720,6 @@ class _FullScreenGallery extends StatelessWidget {
                 ),
               ),
             ),
-
           Positioned(
             top: 100,
             right: 14,
@@ -736,36 +754,92 @@ class _HeroImage extends StatelessWidget {
       );
     }
 
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      child: Image.network(
-        url,
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    if (isMobile) {
+      return Container(
+        color: Colors.black,
         alignment: Alignment.center,
-        loadingBuilder: (_, child, progress) {
-          if (progress == null) return child;
-          return const Center(
-            child: CircularProgressIndicator(
-              color: _DT.gold,
-              strokeWidth: 2,
+        child: Image.network(
+          url,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          alignment: Alignment.center,
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return const Center(
+              child: CircularProgressIndicator(
+                color: _DT.gold,
+                strokeWidth: 2,
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) {
+            return Container(
+              color: _DT.surface,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.broken_image_outlined,
+                color: _DT.textLow,
+                size: 64,
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Image.network(
+            url,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(color: _DT.surface),
+          ),
+        ),
+        Positioned.fill(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              color: Colors.black.withOpacity(0.28),
             ),
-          );
-        },
-        errorBuilder: (_, __, ___) {
-          return Container(
-            color: _DT.surface,
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.broken_image_outlined,
-              color: _DT.textLow,
-              size: 64,
+          ),
+        ),
+        Positioned.fill(
+          child: Center(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              alignment: Alignment.center,
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: _DT.gold,
+                    strokeWidth: 2,
+                  ),
+                );
+              },
+              errorBuilder: (_, __, ___) {
+                return Container(
+                  color: _DT.surface,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.broken_image_outlined,
+                    color: _DT.textLow,
+                    size: 64,
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -986,6 +1060,67 @@ class _Badge extends StatelessWidget {
           Text(
             text,
             style: _DT.syne(s: 12, w: FontWeight.w700, c: fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMENTS ENTRY SECTION
+// ─────────────────────────────────────────────────────────────────────────────
+class _CommentsEntrySection extends StatelessWidget {
+  const _CommentsEntrySection({
+    required this.adId,
+    required this.onOpenComments,
+  });
+
+  final int adId;
+  final VoidCallback onOpenComments;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DarkCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.chat_bubble_rounded, color: _DT.gold, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Şərhlər',
+                style: _DT.syne(s: 16, w: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Bu elan haqqında fikir bildir, sual ver və digər şərhlərə bax.',
+            style: _DT.dm(s: 13, c: _DT.textMid),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _CTAButton(
+                  text: 'Şərhlərə bax',
+                  icon: Icons.forum_rounded,
+                  gradient: [_DT.blue, const Color(0xFF2855CC)],
+                  onTap: onOpenComments,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CTAButton(
+                  text: 'Şərh yaz',
+                  icon: Icons.edit_rounded,
+                  gradient: [_DT.accent, const Color(0xFFE63900)],
+                  onTap: onOpenComments,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1641,7 +1776,7 @@ class _SimilarSection extends ConsumerWidget {
             }
 
             return SizedBox(
-              height: 280,
+              height: 292,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1660,6 +1795,17 @@ class _SimilarSection extends ConsumerWidget {
 class _SimilarTile extends StatelessWidget {
   const _SimilarTile({required this.ad});
   final SimilarAd ad;
+
+  void _openComments(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (_) => CommentsSheet(adId: ad.id),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1721,6 +1867,69 @@ class _SimilarTile extends StatelessWidget {
                       child: Text(
                         ad.cityName,
                         style: _DT.syne(s: 10, c: Colors.white),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openComments(context),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.58),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.14),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 8,
+                    right: 8,
+                    bottom: 8,
+                    child: GestureDetector(
+                      onTap: () => _openComments(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.56),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.08),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.mode_comment_outlined,
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Şərh yaz / bax',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _DT.syne(s: 11, c: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -2228,7 +2437,6 @@ class _LightboxDialogState extends State<_LightboxDialog> {
               },
             ),
           ),
-
           Positioned(
             top: 0,
             left: 0,
@@ -2310,7 +2518,6 @@ class _LightboxDialogState extends State<_LightboxDialog> {
               ),
             ),
           ),
-
           if (widget.gallery.length > 1)
             Positioned(
               bottom: 0,
@@ -2341,7 +2548,6 @@ class _LightboxDialogState extends State<_LightboxDialog> {
                 ),
               ),
             ),
-
           if (widget.gallery.length > 1 && !_isZoomed) ...[
             if (_idx > 0)
               Positioned(

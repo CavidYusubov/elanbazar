@@ -266,7 +266,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   style: TextStyle(color: Colors.white38, fontSize: 18),
                 ),
                 const Text(
-                  'Kəşf et',
+                  'Bütün elanlar',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,

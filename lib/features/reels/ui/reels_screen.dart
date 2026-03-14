@@ -5,10 +5,16 @@ import 'package:elanbazar/features/favorites/state/favorites_controller.dart';
 import 'package:elanbazar/features/profile/store_profile_screen.dart';
 import 'package:elanbazar/features/profile/user_profile_screen.dart';
 import 'package:elanbazar/features/shell/ui/main_shell.dart';
-
+import '../../auth/state/auth_controller.dart';
+import '../../auth/ui/auth_screen.dart';
+import '../../ad_create/ui/ad_create_screen.dart';
+import '../../favorites/ui/favorites_screen.dart';
+import '../../messages/ui/messages_list_screen.dart';
+import '../../profile/ui/account_screen.dart';
 import '../../ads_detail/ui/ad_detail_screen.dart';
 import '../state/reels_controller.dart';
-
+import '../../store/ui/store_create_screen.dart';
+import '../../store/ui/store_dashboard_screen.dart';
 class ReelsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onOpenDiscover;
 
@@ -79,7 +85,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
               begin: const Offset(1, 0),
               end: Offset.zero,
             ).animate(curved),
-            child: const _SideMenuPanel(),
+            child: _SideMenuPanel(),
           ),
         );
       },
@@ -226,7 +232,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                                 _topTab('Sənin üçün', active: true, onTap: () {}),
                                 const SizedBox(width: 14),
                                 _topTab(
-                                  'Kəşf et',
+                                  'Bütün elanlar',
                                   active: false,
                                   onTap: () {
                                     if (widget.onOpenDiscover != null) {
@@ -396,109 +402,498 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       (v % 1 == 0) ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 }
 
-class _SideMenuPanel extends StatefulWidget {
-  const _SideMenuPanel();
+enum _SideInnerPanel { main, contact, lang, help }
+
+class _SideMenuPanel extends ConsumerStatefulWidget {
+  _SideMenuPanel({super.key});
 
   @override
-  State<_SideMenuPanel> createState() => _SideMenuPanelState();
+  ConsumerState<_SideMenuPanel> createState() => _SideMenuPanelState();
 }
 
-class _SideMenuPanelState extends State<_SideMenuPanel> {
-  bool dark = false;
+class _SideMenuPanelState extends ConsumerState<_SideMenuPanel> {
+  bool dark = true;
+  _SideInnerPanel panel = _SideInnerPanel.main;
+
+  void _goMain() {
+    setState(() => panel = _SideInnerPanel.main);
+  }
+
+  void _openPanel(_SideInnerPanel next) {
+    setState(() => panel = next);
+  }
+
+  void _closeMenu() {
+    Navigator.of(context).pop();
+  }
+
+  void _push(Widget page) {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _replaceShell({
+    required int index,
+    HomeTopTab homeTab = HomeTopTab.reels,
+  }) {
+    Navigator.of(context).pop();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => MainShell(
+          initialIndex: index,
+          initialHomeTab: homeTab,
+        ),
+      ),
+    );
+  }
+
+  void _openLogin() {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width * 0.82;
+    final auth = ref.watch(authControllerProvider);
+
+    final user = auth.user;
+    final isLoggedIn = user != null;
+
+    final userStore = user?.store;
+    final hasStore = userStore != null;
+
+    final userName = user?.name ?? 'Xoş gəldiniz!';
+    final userPhone = user?.phone ?? 'Daxil olmaq üçün toxunun';
+    final userAvatar = user?.photoUrl;
+    final profileId = user != null
+        ? user.id.toString().padLeft(7, '0')
+        : null;
+
+    final width = MediaQuery.of(context).size.width * 0.84;
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        width: w,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(18),
-            bottomLeft: Radius.circular(18),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          width: width,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(22),
+              bottomLeft: Radius.circular(22),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x26000000),
+                blurRadius: 24,
+                offset: Offset(-4, 0),
+              ),
+            ],
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: SafeArea(
+            child: Stack(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        shape: BoxShape.circle,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: switch (panel) {
+                    _SideInnerPanel.main => _buildMainPanel(
+                        isLoggedIn: isLoggedIn,
+                        userName: userName,
+                        userPhone: userPhone,
+                        profileId: profileId,
+                        userAvatar: userAvatar,
+                        hasStore: hasStore,
+                        storeStatus: userStore?.status,
                       ),
-                      child: const Icon(Icons.person, color: Colors.black54),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Xoş gəldiniz!', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                          SizedBox(height: 2),
-                          Text('Daxil olmaq üçün toxunun', style: TextStyle(color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _menuRow(
-                  icon: Icons.nightlight_outlined,
-                  title: 'Qaranlıq rejim',
-                  trailing: Switch(
-                    value: dark,
-                    onChanged: (v) => setState(() => dark = v),
-                  ),
-                  onTap: () => setState(() => dark = !dark),
-                ),
-                _menuRow(
-                  icon: Icons.add_box_outlined,
-                  title: 'Elan yerləşdirin',
-                  onTap: () {},
-                ),
-                _menuRow(
-                  icon: Icons.help_outline,
-                  title: 'Tez-tez verilən suallar',
-                  onTap: () {},
-                ),
-                _menuRow(
-                  icon: Icons.language,
-                  title: 'Dil seçin',
-                  onTap: () {},
-                ),
-                _menuRow(
-                  icon: Icons.info_outline,
-                  title: 'Kömək edin',
-                  onTap: () {},
-                ),
-                _menuRow(
-                  icon: Icons.mail_outline,
-                  title: 'Bizimlə əlaqə saxlayın',
-                  onTap: () {},
-                ),
-                const Spacer(),
-                _menuRow(
-                  icon: Icons.login,
-                  title: 'Daxil ol',
-                  onTap: () {},
+                    _SideInnerPanel.contact => _buildContactPanel(),
+                    _SideInnerPanel.lang => _buildLangPanel(),
+                    _SideInnerPanel.help => _buildHelpPanel(),
+                  },
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainPanel({
+    required bool isLoggedIn,
+    required String userName,
+    required String userPhone,
+    required String? profileId,
+    required String? userAvatar,
+    required bool hasStore,
+    required String? storeStatus,
+  }) {
+    return Column(
+      key: const ValueKey('main'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: isLoggedIn
+                      ? () {
+                          _closeMenu();
+                          _push(const AccountScreen());
+                        }
+                      : _openLogin,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildAvatar(userAvatar),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isLoggedIn ? userName : 'Xoş gəldiniz!',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                isLoggedIn ? 'Xoş gəldiniz!' : 'Daxil olmaq üçün toxunun',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (isLoggedIn && profileId != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Profil nömrəsi: $profileId',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black45,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _closeMenu,
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+            children: [
+              _menuRow(
+                icon: Icons.nightlight_outlined,
+                title: 'Qaranlıq rejim',
+                trailing: Switch(
+                  value: dark,
+                  onChanged: (v) => setState(() => dark = v),
+                ),
+                onTap: () => setState(() => dark = !dark),
+              ),
+
+              _menuRow(
+                icon: Icons.add_box_outlined,
+                title: 'Elan yerləşdirin',
+                onTap: () => _push(const AdCreateScreen()),
+              ),
+
+              if (isLoggedIn) ...[
+                _menuRow(
+                  icon: Icons.dashboard_outlined,
+                  title: 'İdarə paneli',
+                  onTap: () => _push(const AccountScreen()),
+                ),
+
+                _menuRow(
+                  icon: Icons.person_outline,
+                  title: 'Profilim',
+                  onTap: () => _push(const AccountScreen()),
+                ),
+
+                if (hasStore)
+                  _menuRow(
+                    icon: (storeStatus == 'approved' || storeStatus == 'active')
+                        ? Icons.storefront_outlined
+                        : Icons.hourglass_bottom_outlined,
+                    title: (storeStatus == 'approved' || storeStatus == 'active')
+                        ? 'Mağaza paneli'
+                        : 'Mağaza: təsdiq gözləyir',
+                    onTap: () {
+                        _closeMenu();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const StoreDashboardScreen(),
+                          ),
+                        );
+                      },
+                  )
+                else
+                  _menuRow(
+                    icon: Icons.store_mall_directory_outlined,
+                    title: 'Mağaza yaradın',
+                    onTap: () {
+                      _closeMenu();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const StoreCreateScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                _menuRow(
+                  icon: Icons.favorite_border,
+                  title: 'Seçilmişlər',
+                  onTap: () => _push(const FavoritesScreen()),
+                ),
+
+                _menuRow(
+                  icon: Icons.chat_bubble_outline,
+                  title: 'Mesajlar',
+                  onTap: () => _push(const MessagesListScreen()),
+                ),
+
+                _menuRow(
+                  icon: Icons.notifications_none,
+                  title: 'Bildirişlər',
+                  onTap: () {
+                    _closeMenu();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Bildirişlər hissəsini sonra bağlayacağıq')),
+                    );
+                  },
+                ),
+              ],
+
+              _menuRow(
+                icon: Icons.help_outline,
+                title: 'Tez-tez verilən suallar',
+                onTap: () {
+                  _closeMenu();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('FAQ hissəsini sonra qoşacağıq')),
+                  );
+                },
+              ),
+
+              _menuRow(
+                icon: Icons.language,
+                title: 'Dil seçin',
+                onTap: () => _openPanel(_SideInnerPanel.lang),
+              ),
+
+              _menuRow(
+                icon: Icons.info_outline,
+                title: 'Kömək edin',
+                onTap: () => _openPanel(_SideInnerPanel.help),
+              ),
+
+              _menuRow(
+                icon: Icons.mail_outline,
+                title: 'Bizimlə əlaqə saxlayın',
+                onTap: () => _openPanel(_SideInnerPanel.contact),
+              ),
+
+              const SizedBox(height: 12),
+
+              if (isLoggedIn)
+                _menuRow(
+                  icon: Icons.logout,
+                  title: 'Çıxış',
+                  onTap: () async {
+                    await ref.read(authControllerProvider.notifier).logout();
+                    if (!mounted) return;
+                    Navigator.of(context).pop();
+                  },
+                )
+              else
+                _menuRow(
+                  icon: Icons.login,
+                  title: 'Daxil ol',
+                  onTap: _openLogin,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactPanel() {
+    return _InnerPanelScaffold(
+      key: const ValueKey('contact'),
+      title: 'Əlaqə vasitələri',
+      onBack: _goMain,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+        children: [
+          _menuRow(
+            icon: Icons.phone_outlined,
+            title: 'Zəng et',
+            onTap: () {},
+          ),
+          _menuRow(
+            icon: Icons.email_outlined,
+            title: 'Məktub yaz',
+            onTap: () {},
+          ),
+          _menuRow(
+            icon: Icons.facebook,
+            title: 'Facebook',
+            onTap: () {},
+          ),
+          _menuRow(
+            icon: Icons.camera_alt_outlined,
+            title: 'Instagram',
+            onTap: () {},
+          ),
+          _menuRow(
+            icon: Icons.music_note_outlined,
+            title: 'TikTok',
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLangPanel() {
+    return _InnerPanelScaffold(
+      key: const ValueKey('lang'),
+      title: 'Dil seçin',
+      onBack: _goMain,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+        children: [
+          _langRow('🇦🇿', 'Azərbaycan'),
+          _langRow('🇷🇺', 'Rus'),
+          _langRow('🇬🇧', 'İngilis'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHelpPanel() {
+    return _InnerPanelScaffold(
+      key: const ValueKey('help'),
+      title: 'Kömək edin',
+      onBack: _goMain,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+        children: [
+          _textOnlyRow('Qaydalar və Şərtlər'),
+          _textOnlyRow('Məxfilik Siyasəti'),
+          _textOnlyRow('Hüquqi Bildiriş'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? url) {
+    final hasImage = url != null && url.isNotEmpty;
+
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F5),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasImage
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) {
+                return const Icon(Icons.person, color: Colors.black45);
+              },
+            )
+          : const Icon(Icons.person, color: Colors.black45),
+    );
+  }
+
+  Widget _langRow(String flag, String title) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _textOnlyRow(String title) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
           ),
         ),
       ),
@@ -514,22 +909,75 @@ class _SideMenuPanelState extends State<_SideMenuPanel> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.black87),
+            Icon(icon, color: Colors.black87, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                  fontSize: 14.5,
+                ),
               ),
             ),
-            ...[trailing].whereType<Widget>(),
+            if (trailing != null) trailing,
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InnerPanelScaffold extends StatelessWidget {
+  const _InnerPanelScaffold({
+    super.key,
+    required this.title,
+    required this.onBack,
+    required this.child,
+  });
+
+  final String title;
+  final VoidCallback onBack;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: onBack,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 }
