@@ -28,32 +28,46 @@ class ReelAd {
     this.commentCount = 0,
   });
 
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is double) return v;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? 0;
+    return 0;
+  }
+
   factory ReelAd.fromJson(Map<String, dynamic> json) {
     final cover = (json['coverUrl'] ??
             json['cover_url'] ??
             json['cover']?['url'] ??
             json['cover']?['full_url'] ??
-            '')!
+            '')
         .toString();
 
     final cityName =
         (json['city'] is Map ? (json['city']['name'] ?? '') : json['city'])
                 ?.toString() ??
             '';
-    final catName = (json['category'] is Map
-                ? (json['category']['name'] ?? '')
-                : json['category'])
-            ?.toString() ??
-        '';
 
-    final pRaw = json['price'];
-    final price =
-        pRaw is num ? pRaw.toDouble() : double.tryParse('$pRaw') ?? 0;
+    final catName =
+        (json['category'] is Map
+                    ? (json['category']['name'] ?? '')
+                    : json['category'])
+                ?.toString() ??
+            '';
 
     return ReelAd(
-      id: (json['id'] as num).toInt(),
+      id: _toInt(json['id']),
       title: (json['title'] ?? '').toString(),
-      price: price,
+      price: _toDouble(json['price']),
       currency: (json['currency'] ?? 'AZN').toString(),
       coverUrl: cover,
       city: cityName,
@@ -61,8 +75,8 @@ class ReelAd {
       publisher: (json['publisher'] is Map)
           ? Publisher.fromJson(Map<String, dynamic>.from(json['publisher']))
           : null,
-      likeCount: (json['like_count'] is num) ? (json['like_count'] as num).toInt() : 0,
-      commentCount: (json['comment_count'] is num) ? (json['comment_count'] as num).toInt() : 0,
+      likeCount: _toInt(json['like_count']),
+      commentCount: _toInt(json['comment_count']),
     );
   }
 }

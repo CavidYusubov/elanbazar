@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:elanbazar/features/comments/ui/comments_sheet.dart';
 import 'package:elanbazar/features/favorites/state/favorites_controller.dart';
 import 'package:elanbazar/features/profile/store_profile_screen.dart';
 import 'package:elanbazar/features/profile/user_profile_screen.dart';
@@ -47,6 +48,17 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   void _openDetail(BuildContext context, int adId) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => AdDetailScreen(adId: adId)),
+    );
+  }
+
+  Future<void> _openCommentsSheet(BuildContext context, int adId) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => CommentsSheet(adId: adId),
     );
   }
 
@@ -290,7 +302,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                           onLike: () async {
                             await ref.read(favoritesControllerProvider.notifier).toggle(ad.id);
                           },
-                          onComment: () {},
+                          onComment: () => _openCommentsSheet(context, ad.id),
                           onMore: () {},
                         ),
                       ),
