@@ -86,7 +86,15 @@ class StoreProfileController extends StateNotifier<StoreProfileState> {
   Future<void> loadInitial() async {
     if (_busy) return;
     _busy = true;
-    state = state.copyWith(loading: true, error: null);
+
+    state = state.copyWith(
+      loading: true,
+      error: null,
+      nextCursor: null,
+      hasMore: true,
+      ads: [],
+    );
+
     try {
       final r = await _repo.fetchProfile(slug: slug);
       state = state.copyWith(
@@ -100,7 +108,11 @@ class StoreProfileController extends StateNotifier<StoreProfileState> {
         error: null,
       );
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString(), hasMore: false);
+      state = state.copyWith(
+        loading: false,
+        error: e.toString(),
+        hasMore: false,
+      );
     } finally {
       _busy = false;
     }
@@ -113,8 +125,13 @@ class StoreProfileController extends StateNotifier<StoreProfileState> {
 
     _busy = true;
     state = state.copyWith(loadingMore: true);
+
     try {
-      final r = await _repo.fetchProfile(slug: slug, cursor: state.nextCursor);
+      final r = await _repo.fetchProfile(
+        slug: slug,
+        cursor: state.nextCursor,
+      );
+
       state = state.copyWith(
         loadingMore: false,
         ads: [...state.ads, ...r.ads],
@@ -122,7 +139,10 @@ class StoreProfileController extends StateNotifier<StoreProfileState> {
         hasMore: r.hasMore,
       );
     } catch (e) {
-      state = state.copyWith(loadingMore: false, error: e.toString());
+      state = state.copyWith(
+        loadingMore: false,
+        error: e.toString(),
+      );
     } finally {
       _busy = false;
     }

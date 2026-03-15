@@ -17,6 +17,7 @@ class UserProfileState {
   final bool hasMore;
   final Map<String, dynamic>? user;
   final Map<String, dynamic>? stats;
+  final bool isFollowing;
   final String? error;
   final bool gridView;
 
@@ -28,6 +29,7 @@ class UserProfileState {
     required this.hasMore,
     this.user,
     this.stats,
+    required this.isFollowing,
     this.error,
     required this.gridView,
   });
@@ -40,6 +42,7 @@ class UserProfileState {
         hasMore: true,
         user: null,
         stats: null,
+        isFollowing: false,
         error: null,
         gridView: true,
       );
@@ -52,6 +55,7 @@ class UserProfileState {
     bool? hasMore,
     Map<String, dynamic>? user,
     Map<String, dynamic>? stats,
+    bool? isFollowing,
     String? error,
     bool? gridView,
   }) {
@@ -63,6 +67,7 @@ class UserProfileState {
       hasMore: hasMore ?? this.hasMore,
       user: user ?? this.user,
       stats: stats ?? this.stats,
+      isFollowing: isFollowing ?? this.isFollowing,
       error: error ?? this.error,
       gridView: gridView ?? this.gridView,
     );
@@ -81,7 +86,15 @@ class UserProfileController extends StateNotifier<UserProfileState> {
   Future<void> loadInitial() async {
     if (_busy) return;
     _busy = true;
-    state = state.copyWith(loading: true, error: null);
+
+    state = state.copyWith(
+      loading: true,
+      error: null,
+      nextCursor: null,
+      hasMore: true,
+      ads: [],
+    );
+
     try {
       final r = await _repo.fetchProfile(userId: userId);
       state = state.copyWith(
@@ -91,10 +104,15 @@ class UserProfileController extends StateNotifier<UserProfileState> {
         hasMore: r.hasMore,
         user: r.user,
         stats: r.stats,
+        isFollowing: r.isFollowing,
         error: null,
       );
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString(), hasMore: false);
+      state = state.copyWith(
+        loading: false,
+        error: e.toString(),
+        hasMore: false,
+      );
     } finally {
       _busy = false;
     }
@@ -107,8 +125,13 @@ class UserProfileController extends StateNotifier<UserProfileState> {
 
     _busy = true;
     state = state.copyWith(loadingMore: true);
+
     try {
-      final r = await _repo.fetchProfile(userId: userId, cursor: state.nextCursor);
+      final r = await _repo.fetchProfile(
+        userId: userId,
+        cursor: state.nextCursor,
+      );
+
       state = state.copyWith(
         loadingMore: false,
         ads: [...state.ads, ...r.ads],
@@ -116,7 +139,10 @@ class UserProfileController extends StateNotifier<UserProfileState> {
         hasMore: r.hasMore,
       );
     } catch (e) {
-      state = state.copyWith(loadingMore: false, error: e.toString());
+      state = state.copyWith(
+        loadingMore: false,
+        error: e.toString(),
+      );
     } finally {
       _busy = false;
     }
